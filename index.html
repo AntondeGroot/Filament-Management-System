@@ -470,7 +470,7 @@ const uid = p => p + Math.random().toString(36).slice(2, 8);
 /* How long a spool is assumed to stay dry in each kind of place, in weeks.
    Every unit carries its own number and Setup lets you change it; these are
    only the starting values. A dryer has none — nothing dries out inside it. */
-const DEFAULT_DRY = { printer: 4, ams: 4, dryer: null, box: 26, shelf: 4 };
+const DEFAULT_DRY = { printer: 4, ams: 12, dryer: null, box: 26, shelf: 4 };
 const LOOSE_DRY = 4;    /* the spare shelf and reorder queue aren't units */
 /* Drying is off entirely if you switch it off, or if nothing has an interval. */
 const dryingOn = () => state.dryTracking !== false && Object.values(state.dryWeeks).some(Boolean);
@@ -479,81 +479,27 @@ const dur = d => d < 14 ? d + " days" : Math.round(d / 7) + " weeks";
 const durShort = d => d < 14 ? d + "d" : Math.round(d / 7) + "w";
 const iso = d => d.toISOString().slice(0, 10);
 const today = () => iso(new Date());
-const ago = n => iso(new Date(Date.now() - n * 864e5));
 const daysSince = d => Math.max(0, Math.round((Date.now() - new Date(d + "T00:00:00").getTime()) / 864e5));
 const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString(undefined, { day:"numeric", month:"short" });
 
-function seed() {
-  const W = (brand, material, colorName, hex) => ({ id: uid("sw-"), brand, material, colorName, hex });
-  const swatches = [
-    W("Bambu Lab","PLA","Basic Black","#1B1B1D"),
-    W("Bambu Lab","PLA","Bambu Green","#00AE42"),
-    W("Polymaker","PETG","Grey","#7C7F84"),
-    W("Bambu Lab","PVA","Support White","#EDE9E0"),
-    W("Prusament","PLA","Galaxy Silver","#5E6672"),
-    W("Sunlu","PLA+","Cold White","#F4F4F0"),
-    W("eSun","PETG","Solid Orange","#E4611B"),
-    W("Overture","TPU","Clear","#D8DDE0"),
-    W("Polymaker","ABS","Signal Red","#B0221F"),
-    W("Prusament","PETG","Jet Black","#141416"),
-    W("Sunlu","PLA","Sky Blue","#3E7BD1"),
-    W("eSun","PLA+","Fire Engine Red","#C2231C"),
-    W("Bambu Lab","PLA","Matte Ivory","#EFE7D6"),
-    W("Polymaker","ASA","Charcoal","#3B3E44"),
-    W("Overture","PLA","Forest Green","#2E6B45"),
-    W("Sunlu","PETG","Transparent Blue","#5FA8D3"),
-    W("Bambu Lab","PLA","Sunflower Yellow","#F5C518"),
-    W("eSun","PLA","Purple","#6E4B9E"),
-    W("Bambu Lab","PLA","Cyber Orange","#F35C1E"),   /* long gone, kept as a record */
-    W("Bambu Lab","PLA-CF","Carbon Black","#26282B"),
-    W("Polymaker","PETG-CF","Graphite","#3A3C40"),
-    W("Polymaker","PA-CF","Nylon Black","#1F2124"),
-  ];
-  const w = n => swatches.find(x => x.colorName === n).id;
+/* An empty bench.
 
-  const spools = [];
-  const S = (colorName, dried, low) => {
-    const s = { id: uid("sp-"), swatchId: w(colorName), low: !!low, sealed: false, ordered: false,
-                driedAt: dried == null ? null : ago(dried) };
-    spools.push(s);
-    return s.id;
-  };
-  const sealed = (colorName, n = 1) => {
-    const out = [];
-    for (let i = 0; i < n; i++) {
-      const id = S(colorName, null);
-      spools.find(x => x.id === id).sealed = true;
-      out.push(id);
-    }
-    return out;
-  };
+   Everything here is structure the app needs in order to exist — the four
+   collections and the default drying intervals — and deliberately no content.
+   A new install opens on empty groups with their "+ Add" buttons, so the first
+   thing you do is add your own printer rather than delete someone else’s.
 
-  const units = [
-    { id:"prn-1", kind:"printer", name:"X1 Carbon", slots:[null] },
-    { id:"ams-a", kind:"ams", name:"AMS unit A",
-      slots:[S("Basic Black",12), S("Bambu Green",64,true), S("Grey",41), S("Support White",4)] },
-    { id:"ams-b", kind:"ams", name:"AMS unit B",
-      slots:[S("Galaxy Silver",19), S("Signal Red",96), null, null] },
-    { id:"dryer-1", kind:"dryer", name:"Dryer", slots:[S("Clear",210), S("Transparent Blue",118), null, null] },
-    { id:"box-1", kind:"box", name:"Box 1", slots:[S("Cold White",33), S("Solid Orange",72,true), null, null] },
-    { id:"box-2", kind:"box", name:"Box 2", slots:[S("Jet Black",9), S("Sky Blue",47), null, null] },
-    { id:"box-3", kind:"box", name:"Box 3", slots:[S("Fire Engine Red",15), S("Matte Ivory",26), S("Charcoal",44), null] },
-    { id:"shelf-1", kind:"shelf", name:"Shelf", slots:[S("Forest Green",7), S("Purple",35), null, null, null, null] },
-  ];
-
-  /* The green is nearly out, so a replacement is waiting. Black and white get
-     bought by the handful, so they sit as piles. */
-  const unassigned = [...sealed("Bambu Green"), ...sealed("Basic Black", 4), ...sealed("Cold White", 3)];
-
-  const dead = S("Sunflower Yellow", null);
-  spools.find(x => x.id === dead).ordered = true;
-
+   Also what "Reset everything" restores, which is why it is a function rather
+   than a literal: two callers, one definition, no shared object between them. */
+function emptyBench() {
   return {
-    swatches, spools, units,
-    spares: unassigned,
-    reorder: [dead],
+    swatches: [],
+    spools: [],
+    units: [],
+    spares: [],
+    reorder: [],
     projects: [],
-    folders: [{ id: "fd-keys", name: "Keychains", parent: null, open: true }],
+    folders: [],
     dryWeeks: { ...DEFAULT_DRY },
     dryTracking: true,
     notify: false,
@@ -562,7 +508,7 @@ function seed() {
   };
 }
 
-let state = seed();
+let state = emptyBench();
 
 /* ============================ storage ============================ */
 /* IndexedDB is the real backend: a service worker can read it, which is how
@@ -631,7 +577,10 @@ async function load() {
 function migrate() {
   if (!state.deleted) state.deleted = {};
   if (!("notify" in state)) { state.notify = false; state.notifiedOn = null; }
-  if (!state.units.some(u => u.kind === "dryer")) {
+  /* Dryers arrived after the first release, so a bench saved before then gets one
+     inserted. An empty bench is not an old bench — it has nothing to migrate, and
+     adding a dryer to it would hand back a unit that was just deleted. */
+  if (state.units.length && !state.units.some(u => u.kind === "dryer")) {
     const at = state.units.findIndex(u => u.kind === "box");
     state.units.splice(at < 0 ? state.units.length : at, 0,
       { id:"dryer-1", kind:"dryer", name:"Dryer", slots:[null,null,null,null] });
@@ -2464,11 +2413,11 @@ document.getElementById("fab").onclick = () =>
 setTab("bench");
 document.getElementById("reset-btn").onclick = () => modal(
   `<h2>Start over?</h2>
-   <p style="margin:0 0 4px;color:var(--ink-soft)">This clears your spools, layout and project list, and puts the sample data back.</p>
+   <p style="margin:0 0 4px;color:var(--ink-soft)">This clears your spools, layout and project list, and leaves you with an empty bench. It cannot be undone.</p>
    <div class="sheet-foot"><span class="spacer"></span>
      <button class="btn ghost" data-close>Keep my data</button>
      <button class="btn danger" id="x-yes">Reset</button></div>`,
-  scrim => { scrim.querySelector("#x-yes").onclick = () => { state = seed(); close(); save(); render(); toast("Reset — sample data loaded."); }; });
+  scrim => { scrim.querySelector("#x-yes").onclick = () => { state = emptyBench(); close(); save(); render(); toast("Reset — everything cleared."); }; });
 
 load();
 </script>
