@@ -9,7 +9,9 @@
     "assets": "bash scripts/generate-assets.sh",
     "cap:sync": "npm run build && cap sync android",
     "cap:android": "npm run cap:sync && cap open android",
-    "android:install": "bash scripts/install-android.sh"
+    "android:install": "bash scripts/install-android.sh",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@capacitor/local-notifications": "^8.2.1"
@@ -19,6 +21,8 @@
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.0",
     "@capacitor/core": "^8.5.0",
-    "typescript": "~6.0.3"
+    "jsdom": "^28.1.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
   }
 }
