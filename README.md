@@ -10,9 +10,17 @@ dried, which colours you own, and what each project used.
 | `index.html` | the whole app — markup, styles and logic |
 | `sw.js` | service worker: offline shell + the background drying check |
 | `manifest.webmanifest` | makes it installable to the Android home screen |
-| `icon-*.png` | launcher icons |
+| `icon-*.png` | launcher icons, for the home screen and the APK alike |
+| `capacitor.config.ts`, `android/` | the Android shell — see [Building the APK](#building-the-apk) |
+| `scripts/` | build, icon generation, install-on-device |
 
-No build step, no dependencies, no bundler. Edit `index.html` and reload.
+The app itself still has no build step, no dependencies and no bundler: edit
+`index.html`, reload, done. Everything above the line in that table is the whole
+web app, and it is what a static host serves.
+
+The npm project underneath it exists only to wrap that in an APK. It never
+touches `index.html` — `npm run build` is a copy into `dist/`, because Capacitor
+packages a directory and the repo root also holds `android/` and `node_modules/`.
 
 ## Hosting
 
@@ -24,9 +32,36 @@ repo, point the host at it, done.
 The app still runs perfectly well opened as a plain file; you just lose the
 service worker, which means no offline cache and no background reminders.
 
-## Installing on Android
+## Building the APK
 
-1. Open the site in Chrome.
+```
+npm install
+npm run android:install      # build, then install over USB
+```
+
+`scripts/install-android.sh` does the whole chain — collect `dist/`, `cap sync`,
+Gradle, `adb install` — and stops with an explanation rather than a stack trace
+when the phone is locked, unauthorised, or the default JDK is too new for
+Gradle. It needs JDK 21 and the Android SDK's `platform-tools`; set
+`ANDROID_SDK_ROOT` if the SDK isn't in the usual place.
+
+```
+npm run android:install -- --skip-build   # reinstall the APK that's already built
+npm run assets                            # regenerate launcher icons from icon-512*.png
+```
+
+Reinstalling keeps app data, which matters here: the entire inventory lives in
+the webview's IndexedDB and nowhere else. The script refuses to uninstall on
+your behalf when signing keys don't match, and tells you what it would cost.
+
+Because the APK bundles the app rather than pointing at a hosted URL, every
+change to `index.html` needs a reinstall to reach the phone.
+
+## Installing without the APK
+
+The site is still a normal PWA:
+
+1. Open it in Chrome.
 2. Menu → **Add to Home screen** (or accept the install prompt).
 3. Open it from the home screen at least once.
 4. In the app: **Setup → Reminders → notify me**, and accept the browser prompt.
@@ -36,33 +71,49 @@ apps — a bookmarked tab won't get it.
 
 ## How reminders actually work
 
-Two layers, and it's worth knowing which one is doing the work:
+Which mechanism you get depends on how the app was installed, and the difference
+is worth knowing because it decides whether closing the app costs you the nudge.
+
+**From the APK — real alarms.** `@capacitor/local-notifications` hands Android a
+queue of scheduled notifications, one per morning that has something overdue, at
+09:00. They fire whether or not the app is running, they survive a reboot
+(`RECEIVE_BOOT_COMPLETED`), and Android does not get a vote on the timing. The
+queue is rebuilt from scratch after every save and whenever the app comes back
+to the foreground, so it can't drift out of step with the inventory.
+
+The webview has no Periodic Background Sync at all, so this isn't a nicety —
+it's the only thing that works there. The service worker is skipped entirely in
+the APK.
+
+**From Chrome — best effort.** Two weaker layers:
 
 - **While the page is open** — the app checks on load and once an hour. Works
   in every browser, on every platform, installed or not.
-- **While it's closed** — Chrome on Android wakes the service worker on a
-  schedule and it checks then. Requires installation.
+- **While it's closed** — Chrome wakes the service worker on a schedule and it
+  checks then. Requires installation to the home screen.
 
-**Chrome decides the frequency.** `minInterval` is a hint, not a contract; the
+**Chrome decides that frequency.** `minInterval` is a hint, not a contract; the
 actual cadence depends on how often you use the app, and on battery and network
 state. A couple of checks a day is typical for an app you open regularly, and
-it can go quiet for a while if you don't. This is not a good mechanism for
-anything time-critical, and drying a spool isn't.
+it can go quiet for a while if you don't. Not a good mechanism for anything
+time-critical — and drying a spool isn't.
 
 Either way you get at most one notification per day, and only for spools that
 are genuinely past the window for wherever they're sitting.
 
-**iOS gets the first layer only.** Safari doesn't implement Periodic Background
-Sync. If iPhone support matters later, wrapping this in Capacitor gets you real
-scheduled local notifications on both platforms without touching the code.
+**iOS still gets the browser path only** — Safari has no Periodic Background
+Sync. Capacitor is already set up, though, so `npx cap add ios` would get the
+same scheduled alarms there without touching `index.html`.
 
 ## Where the drying rules live
 
 Only in `index.html`. The page computes a flat list — `state.due`, entries of
-`{name, at}` — every time it saves, and the service worker does nothing but
-compare those dates against today. So there's exactly one implementation of the
-windows, the per-type intervals and the sealed/dryer exemptions, and the worker
-can't drift out of step with them.
+`{name, at}` — every time it saves. Everything downstream just reads that list:
+the service worker compares the dates against today, and `alarms()` regroups
+them into one scheduled notification per morning. So there's exactly one
+implementation of the windows, the per-type intervals and the sealed/dryer
+exemptions, and neither the worker nor the Android queue can drift out of step
+with them.
 
 ## Storage
 

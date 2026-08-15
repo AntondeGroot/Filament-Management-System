@@ -427,15 +427,15 @@ body.dragging{cursor:grabbing;user-select:none}
 
     <div style="margin-top:28px;border-top:1px solid var(--rule);padding-top:16px">
       <div class="log-head"><div class="eyebrow">Reminders</div><div class="hair"></div></div>
-      <p class="empty-note" style="max-width:62ch">A nudge when spools are past their drying window, at most once a day.
-        Your browser has to grant permission first, and it will ask the moment you tick this.</p>
+      <p class="empty-note" style="max-width:62ch" id="notify-intro">A nudge when spools are past their drying window,
+        at most once a day. Your browser has to grant permission first, and it will ask the moment you tick this.</p>
       <div class="srow" style="border-top:0">
         <span class="kname">Drying due</span>
         <label class="never"><input type="checkbox" id="notify-toggle"> notify me</label>
         <span class="held" id="notify-state" style="min-width:auto"></span>
       </div>
-      <p class="empty-note" style="max-width:62ch;margin-top:4px">Reminders arrive while the page is open. Add this to
-        your Android home screen and Chrome will also check in the background every so often —
+      <p class="empty-note" style="max-width:62ch;margin-top:4px" id="notify-how">Reminders arrive while the page is open.
+        Add this to your Android home screen and Chrome will also check in the background every so often —
         <span id="notify-bg">background checks inactive</span>. Chrome decides how often; a couple of times a day is typical.</p>
     </div>
 
@@ -616,8 +616,17 @@ async function load() {
   const now = Date.now();
   records().forEach(r => { if (r && r.id && !r.updatedAt) r.updatedAt = now; });
   resnap();
+
+  /* Read Android's answer before the first paint, so the Reminders row doesn't
+     show "off" for a frame to someone who granted permission months ago. */
+  const ln = LN();
+  if (ln) {
+    try { nativePerm = (await ln.checkPermissions()).display; } catch (e) { nativePerm = "denied"; }
+  }
+
   render();
   notifyCheck();
+  syncScheduled();
 }
 function migrate() {
   if (!state.deleted) state.deleted = {};
@@ -733,6 +742,7 @@ function save() {
   saveTimer = setTimeout(async () => {
     try { await storage.set(state); }
     catch (e) { storageOK = false; toast("Changes won't be saved — storage is unavailable."); }
+    syncScheduled();   /* state.due just changed, so the queued alarms are stale */
   }, 250);
 }
 
@@ -1811,25 +1821,62 @@ document.addEventListener("change", e => {
 });
 
 /* ============================ reminders ============================ */
-const canNotify = () => typeof Notification !== "undefined";
 
-async function askNotify(on) {
-  if (!on) { state.notify = false; save(); render(); return; }
-  if (!canNotify()) { toast("This browser doesn't offer notifications here."); render(); return; }
-  let perm = Notification.permission;
-  if (perm === "default") {
-    try { perm = await Notification.requestPermission(); } catch (e) { perm = "denied"; }
+/* Two ways of being told, picked by where the app is running:
+
+   - From the APK, Android schedules the reminders as real alarms. They fire
+     whether or not the app is running and they survive a reboot. The webview
+     has no Periodic Background Sync, so this is the only thing that works
+     there — and it is the more reliable of the two anyway.
+   - In a browser, a Notification while the page is open, plus whatever
+     Periodic Background Sync Chrome grants the service worker.
+
+   Both read the same state.due the page already recomputes on every save, so
+   there is still exactly one implementation of the drying windows. */
+
+const capacitor = () => window.Capacitor;
+const native = () => !!capacitor()?.isNativePlatform?.();
+const LN = () => (native() ? capacitor()?.Plugins?.LocalNotifications : null);
+
+const canNotify = () => !!LN() || typeof Notification !== "undefined";
+
+/* Android's permission state, cached: renderSetup is synchronous and the
+   plugin's check is not. */
+let nativePerm = "default";
+
+async function requestPermission() {
+  const ln = LN();
+  if (!ln) {
+    if (typeof Notification === "undefined") return "unsupported";
+    if (Notification.permission !== "default") return Notification.permission;
+    try { return await Notification.requestPermission(); } catch (e) { return "denied"; }
   }
-  if (perm === "granted") { state.notify = true; toast("Reminders on."); notifyCheck(true); }
-  else {
-    state.notify = false;
-    toast("Your browser is blocking notifications for this site — allow them in its site settings.");
-  }
-  save(); render();
+  try { nativePerm = (await ln.requestPermissions()).display; } catch (e) { nativePerm = "denied"; }
+  return nativePerm;
 }
 
-/* Once a day at most, and only for what's actually overdue. */
+async function askNotify(on) {
+  if (!on) { state.notify = false; save(); render(); syncScheduled(); return; }
+  if (!canNotify()) { toast("This browser doesn't offer notifications here."); render(); return; }
+
+  const perm = await requestPermission();
+  if (perm === "granted") {
+    state.notify = true;
+    toast("Reminders on.");
+    notifyCheck(true);
+  } else {
+    state.notify = false;
+    toast(native()
+      ? "Android is blocking notifications for this app — allow them in its app settings."
+      : "Your browser is blocking notifications for this site — allow them in its site settings.");
+  }
+  save(); render(); syncScheduled();
+}
+
+/* Once a day at most, and only for what's actually overdue. Off on Android,
+   where the alarms below cover the app being open just as well as closed. */
 function notifyCheck(force) {
+  if (native()) return;
   if (!state.notify || !dryingOn()) return;
   if (!canNotify() || Notification.permission !== "granted") return;
   const due = needsDrying();
@@ -1848,11 +1895,71 @@ function notifyCheck(force) {
 }
 setInterval(notifyCheck, 36e5);
 
-/* Installed on Android, Chrome will run the worker on a schedule of its
-   choosing; minInterval is a hint, not a promise. Everywhere else this is a
-   no-op and reminders simply happen while the page is open. */
-let bgReady = false;
+/* ---------------- scheduled alarms (the Android build) ---------------- */
+
+const NOTIFY_HOUR = 9;      /* nobody wants to hear about a damp spool at midnight */
+const HORIZON_DAYS = 60;    /* further out than this and the date is guesswork anyway */
+const MAX_ALARMS = 24;      /* Android's queue is finite; stay well inside it */
+
+const atNotifyHour = d => { const x = new Date(d); x.setHours(NOTIFY_HOUR, 0, 0, 0); return x; };
+
+/* state.due is one entry per spool, keyed by the day it goes stale. Android
+   wants the opposite shape — one alarm per day, carrying the names that land on
+   it. Anything already overdue collapses onto the next morning, so a backlog
+   arrives as one notification rather than twenty. */
+function alarms() {
+  const now = new Date();
+  const soonest = atNotifyHour(now) > now ? atNotifyHour(now) : atNotifyHour(new Date(now.getTime() + 864e5));
+  const horizon = now.getTime() + HORIZON_DAYS * 864e5;
+  const days = new Map();
+
+  for (const d of state.due || []) {
+    const on = atNotifyHour(new Date(d.at + "T00:00:00"));
+    const when = (on > now ? on : soonest).getTime();
+    if (when > horizon) continue;
+    if (!days.has(when)) days.set(when, []);
+    days.get(when).push(d.name);
+  }
+
+  return [...days.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .slice(0, MAX_ALARMS)
+    .map(([when, names]) => ({
+      /* Days since the epoch: stable, so rescheduling replaces the alarm for a
+         morning instead of stacking a second one on top of it. */
+      id: Math.round(when / 864e5),
+      title: `${names.length} spool${names.length > 1 ? "s" : ""} need drying`,
+      body: names.slice(0, 3).join(", ") + (names.length > 3 ? ` and ${names.length - 3} more` : ""),
+      schedule: { at: new Date(when), allowWhileIdle: true },
+    }));
+}
+
+/* Rebuilt from scratch after every save. Cheaper than working out what changed,
+   and it cannot drift: what is queued is always what the inventory implies. */
+async function syncScheduled() {
+  const ln = LN();
+  if (!ln) return;
+  try {
+    const { notifications } = await ln.getPending();
+    if (notifications.length) await ln.cancel({ notifications: notifications.map(n => ({ id: n.id })) });
+    if (!state.notify || !dryingOn() || nativePerm !== "granted") return;
+    const queue = alarms();
+    if (queue.length) await ln.schedule({ notifications: queue });
+  } catch (e) { /* nothing to do from here — the queue is rebuilt on the next save */ }
+}
+
+/* The app can sit in the background for days, by which point everything queued
+   has already fired. Cheap enough to just rebuild whenever it comes forward. */
+document.addEventListener("visibilitychange", () => { if (!document.hidden) syncScheduled(); });
+
+/* In a browser, Chrome runs the worker on a schedule of its choosing once the
+   app is installed to the home screen; minInterval is a hint, not a promise.
+   Skipped in the APK: the alarms above do the same job properly, and the
+   worker's network-first fetch handler would only sit between Capacitor and the
+   bundle it is already serving locally. */
+let bgText = "background checks inactive";
 async function setupWorker() {
+  if (native()) return;
   if (!("serviceWorker" in navigator) || location.protocol === "blob:") return;
   try {
     const reg = await navigator.serviceWorker.register("sw.js");
@@ -1860,9 +1967,9 @@ async function setupWorker() {
     const st = await navigator.permissions.query({ name: "periodic-background-sync" });
     if (st.state !== "granted") return;
     await reg.periodicSync.register("dry-check", { minInterval: 12 * 60 * 60 * 1000 });
-    bgReady = true;
+    bgText = "background checks active";
     const el = document.getElementById("notify-bg");
-    if (el) el.textContent = "background checks active";
+    if (el) el.textContent = bgText;
   } catch (e) { /* not installed, or unsupported — the in-page check still runs */ }
 }
 setupWorker();
@@ -1911,14 +2018,27 @@ function renderSetup() {
   }).join("");
 
   const box = document.getElementById("notify-toggle");
-  const perm = canNotify() ? Notification.permission : "unsupported";
+  const perm = native() ? nativePerm : canNotify() ? Notification.permission : "unsupported";
   box.checked = !!state.notify && perm === "granted";
   box.disabled = perm === "denied" || perm === "unsupported";
   document.getElementById("notify-state").textContent =
     perm === "unsupported" ? "not available here"
-    : perm === "denied" ? "blocked in browser settings"
+    : perm === "denied" ? native() ? "blocked in app settings" : "blocked in browser settings"
     : state.notify && perm === "granted" ? "on"
     : "off";
+
+  /* The two paths promise genuinely different things, and which one you are on
+     decides whether closing the app costs you the reminder. */
+  document.getElementById("notify-intro").textContent =
+    `A nudge when spools are past their drying window, at most once a day. ${
+      native() ? "Android has" : "Your browser has"} to grant permission first, and it will ask the moment you tick this.`;
+
+  document.getElementById("notify-how").innerHTML = native()
+    ? `Reminders are scheduled with Android, so they arrive whether or not the app is open, and they
+       survive a reboot. One at ${NOTIFY_HOUR}:00 on any morning something is past its window.`
+    : `Reminders arrive while the page is open. Add this to your Android home screen and Chrome will also
+       check in the background every so often — <span id="notify-bg">${bgText}</span>. Chrome decides how
+       often; a couple of times a day is typical.`;
 
   const track = state.dryTracking !== false;
   document.getElementById("drytrack").checked = track;
