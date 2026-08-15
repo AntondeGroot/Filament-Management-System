@@ -1,0 +1,2354 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Filament Manager</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1B1F26">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --ground:#DEDCD6;
+  --panel:#F2F1ED;
+  --machine:#1B1F26;
+  --ink:#16181D;
+  --ink-soft:#6B6F76;
+  --rule:#C3C1B9;
+  --alert:#A62E2E;
+  --damp:#2F6A8C;
+  --flange:#CFCCC4;
+  --display:"Barlow Condensed","Oswald",Impact,sans-serif;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+.eyebrow{font-family:var(--display);text-transform:uppercase;letter-spacing:.14em;font-weight:600;font-size:13px;line-height:1}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- header ---------- */
+.bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:13px 20px;background:var(--machine);color:#EDECE8;position:sticky;top:0;z-index:40}
+.wordmark{font-family:var(--display);font-weight:700;font-size:25px;letter-spacing:.02em;text-transform:uppercase;line-height:1}
+.wordmark span{color:#8A9099}
+.stats{display:flex;gap:16px;flex-wrap:wrap;margin-left:auto;align-items:center}
+.stat{display:flex;align-items:baseline;gap:6px}
+.stat b{font-family:var(--mono);font-size:16px;font-weight:600}
+.stat i{font-style:normal;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8A9099;font-family:var(--display)}
+.stat.warn b{color:#F0917D}
+.stat.damp b{color:#7FC0E0}
+.bar .btn{background:transparent;border:1px solid #444A54;color:#EDECE8}
+.bar .btn:hover{background:#282D36;border-color:#6B7280}
+.bar .btn.primary{background:#EDECE8;color:var(--machine);border-color:#EDECE8}
+.bar .btn.primary:hover{background:#fff}
+
+.btn{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;font-weight:600;font-size:13px;padding:7px 13px 6px;border-radius:2px;border:1px solid var(--ink);background:transparent}
+.btn:hover{background:rgba(0,0,0,.06)}
+.btn.primary{background:var(--ink);color:var(--panel)}
+.btn.primary:hover{background:#000}
+.btn.ghost{border-color:var(--rule);color:var(--ink-soft)}
+.btn.danger{border-color:var(--alert);color:var(--alert)}
+.btn.danger:hover{background:rgba(166,46,46,.08)}
+.btn.tiny{font-size:11px;padding:4px 8px 3px}
+.linkbtn{display:inline-block;text-decoration:none}
+.linkrow{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.btn.on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.chips .n{font-family:var(--mono);font-size:10px;opacity:.65;margin-left:4px;letter-spacing:0}
+.chips .sep{width:1px;background:var(--rule);align-self:stretch;margin:0 4px}
+.chips .btn[disabled]{opacity:.35}
+
+/* ---------- layout ---------- */
+.wrap{padding:24px 20px 80px;max-width:1320px;margin:0 auto}
+.wrap[hidden]{display:none}
+.wrap.narrow{max-width:820px}
+.tabs{display:flex;gap:4px;margin-left:4px}
+.tab{background:none;border:0;padding:8px 12px 6px;border-bottom:2px solid transparent;font-family:var(--display);text-transform:uppercase;letter-spacing:.12em;font-weight:600;font-size:14px;color:#8A9099;line-height:1}
+.tab:hover{color:#EDECE8}
+.tab.on{color:#EDECE8;border-bottom-color:#EDECE8}
+.tab .n{font-family:var(--mono);font-size:10px;letter-spacing:0;margin-left:5px;color:#8A9099}
+@media (max-width:1040px){.wrap{grid-template-columns:1fr;gap:20px}}
+
+.section{margin-bottom:24px}
+.section-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.hair{flex:1;height:1px;background:var(--rule)}
+.section-head .meta{font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+
+.grid-ams{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+.grid-box{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+
+.unit{border-radius:4px;padding:11px;position:relative}
+.unit.machine{background:linear-gradient(180deg,#232830,#1A1E25);border:1px solid #0D1014;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.unit.printer{background:linear-gradient(180deg,#2C323B,#171B21)}
+.unit.box{background:linear-gradient(160deg,rgba(255,255,255,.85),rgba(255,255,255,.5));border:1px solid rgba(255,255,255,.9);outline:1px solid var(--rule);box-shadow:inset 0 0 24px rgba(255,255,255,.6),0 1px 0 rgba(0,0,0,.05)}
+.unit.box::after{content:"";position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:64px;height:5px;border:1px solid var(--rule);border-top:0;border-radius:0 0 4px 4px;background:rgba(255,255,255,.7)}
+
+.unit.shelf{background:transparent;border:0;border-radius:0;padding:2px 0 0}
+.unit.shelf .slots{padding-bottom:11px}
+.unit.shelf::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;border-radius:1px;background:linear-gradient(180deg,#C9C6BE,#AFABA2);box-shadow:0 3px 6px rgba(0,0,0,.13)}
+.unit.shelf .unit-head{padding-left:2px}
+.unit.dryer{background:linear-gradient(180deg,#CBC7BE,#BEB9AF);border:1px solid #A5A198;box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+.unit.dryer .slot.free{border-color:#A29E95}
+.unit.dryer .free-label{color:#78746C}
+.unit.dryer .spool{border-color:#A5A198}
+.vent{display:flex;align-items:center;gap:10px;margin-top:9px;padding-top:8px;border-top:1px solid rgba(0,0,0,.12)}
+.vent .slits{flex:1;height:10px;border-radius:2px;background:repeating-linear-gradient(90deg,rgba(0,0,0,.15) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1px rgba(0,0,0,.07)}
+
+.unit-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.umove{display:flex;align-items:center;gap:4px;flex:none;margin-left:2px;padding:4px 7px;height:30px;
+       background:none;border:1px solid var(--rule);border-radius:3px;color:var(--ink-soft);cursor:pointer}
+.umove .n{font-family:var(--mono);font-size:12px;font-weight:600;line-height:1}
+.umove:hover{border-color:var(--ink);color:var(--ink)}
+.unit.machine .umove{border-color:#4A525C;color:#8A9099}
+.unit.machine .umove:hover{border-color:#EDECE8;color:#EDECE8}
+.unit.dryer .umove{border-color:#A5A198;color:#57534A}
+.unit.over{box-shadow:inset 0 0 0 2px var(--ink)}
+.ucaret{font-size:11px;line-height:1;color:var(--ink-soft);width:14px;flex:none;text-align:center}
+.unit-head{cursor:pointer;user-select:none;border-radius:3px}
+.unit-head[data-grip]{cursor:grab}
+body.dragging .unit-head[data-grip]{cursor:grabbing}
+.unit-head:hover .unit-name{text-decoration:underline}
+.unit.machine .ucaret{color:#8A9099}
+.unit.collapsed{padding-bottom:9px}
+.unit.collapsed .unit-head{margin-bottom:0}
+.mini-row{display:flex;flex-wrap:wrap;gap:5px;padding-top:9px;min-height:22px}
+.mini-empty{font-family:var(--display);text-transform:uppercase;letter-spacing:.12em;font-size:10px;color:var(--ink-soft);padding-top:11px}
+.unit.machine .mini-empty{color:#5D656F}
+.spool.mini{width:auto;flex-direction:row;align-items:center;gap:5px;padding:3px 7px 3px 4px;border-radius:20px;
+            font-family:var(--mono);font-size:11px;line-height:1;text-align:left}
+.spool.mini:hover{transform:none;box-shadow:0 1px 0 rgba(0,0,0,.18)}
+.spool.mini .disc{width:17px;height:17px;flex:none}
+.spool.mini .sealed-dot{width:4px;height:4px;border-radius:50%;background:var(--ink);opacity:.55}
+#ghost.mini{width:auto}
+.unit.machine.over{box-shadow:inset 0 0 0 2px #EDECE8}
+.unit-ghost{position:fixed;z-index:90;pointer-events:none;background:var(--ink);color:var(--panel);
+            border-radius:3px;padding:9px 13px;font-family:var(--display);text-transform:uppercase;
+            letter-spacing:.1em;font-size:13px;box-shadow:0 12px 24px rgba(0,0,0,.3)}
+.pickcol{display:grid;gap:6px;margin-bottom:6px}
+.pickcol .btn{width:100%;text-align:left}
+.unit-name{font-family:var(--display);text-transform:uppercase;letter-spacing:.12em;font-size:13px;font-weight:600;background:none;border:0;padding:2px 4px;border-radius:2px;text-align:left}
+.unit-name:hover{background:rgba(0,0,0,.07)}
+.unit.machine .unit-name{color:#EDECE8}
+.unit.machine .unit-name:hover{background:rgba(255,255,255,.1)}
+.unit-head .count{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ink-soft)}
+.unit.machine .count{color:#7A828C}
+.led{width:6px;height:6px;border-radius:50%;background:#4ADE80;box-shadow:0 0 6px #4ADE80}
+.led.heat{background:var(--damp);box-shadow:0 0 6px var(--damp)}
+
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:7px}
+.slot{border-radius:3px;min-height:112px;padding:5px;display:flex;position:relative}
+.slot.free{border:1px dashed var(--rule);align-items:center;justify-content:center}
+.unit.machine .slot.free{border-color:#3A4149}
+.slot .idx{position:absolute;top:4px;left:6px;font-family:var(--mono);font-size:9px;color:var(--ink-soft);opacity:.7}
+.unit.machine .slot .idx{color:#7A828C}
+.free-label{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;font-size:10px;color:var(--ink-soft)}
+.unit.machine .free-label{color:#5D656F}
+.slot.over{background:rgba(0,0,0,.07);box-shadow:inset 0 0 0 2px var(--ink)}
+.unit.machine .slot.over{background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 2px #EDECE8}
+
+.reorder{border:2px dashed var(--rule);border-radius:4px;padding:12px;background:repeating-linear-gradient(135deg,rgba(255,255,255,.35) 0 12px,transparent 12px 24px);min-height:100px}
+.reorder.over{border-color:var(--ink);background:rgba(0,0,0,.05)}
+.reorder .row{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.reorder.spares{border-style:solid;background:rgba(255,255,255,.42)}
+.empty-note{font-size:13px;color:var(--ink-soft);max-width:44ch;padding:4px 2px;grid-column:1/-1}
+
+/* ---------- the spool ---------- */
+.spool{width:100%;text-align:center;background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:8px 6px 7px;display:flex;flex-direction:column;align-items:center;gap:5px;touch-action:pan-y;transition:transform .12s ease,box-shadow .12s ease}
+.unit.machine .spool{background:#EDECE8;border-color:#0D1014}
+.spool:hover{box-shadow:0 2px 0 rgba(0,0,0,.14);transform:translateY(-1px)}
+.spool{position:relative;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.unit-head,.swatch,.frow,.mini-row,.tabs,.fab{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.spool.holding{transform:scale(1.06);box-shadow:0 6px 16px rgba(0,0,0,.22);z-index:3}
+.spool.stacked{box-shadow:3px 3px 0 -1px var(--panel),4px 4px 0 -1px var(--rule)}
+.spool.stacked:hover{box-shadow:3px 3px 0 -1px var(--panel),4px 4px 0 -1px var(--rule),0 2px 0 rgba(0,0,0,.14)}
+.stack{position:absolute;top:5px;right:6px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--ink)}
+.spool.lifted{opacity:.28}
+.spool.flash{animation:settle .3s ease}
+@keyframes settle{0%{transform:scale(.94) rotate(-2deg)}100%{transform:none}}
+
+.disc{position:relative;width:42px;height:42px;flex:none}
+.disc .flange{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 6%,rgba(0,0,0,.16) 0 2px,transparent 2px),radial-gradient(circle at 12% 72%,rgba(0,0,0,.16) 0 2px,transparent 2px),radial-gradient(circle at 88% 72%,rgba(0,0,0,.16) 0 2px,transparent 2px),radial-gradient(circle,transparent 0 39%,rgba(0,0,0,.07) 39% 41%,transparent 41%),var(--flange);box-shadow:inset 0 0 0 1px rgba(0,0,0,.22),inset 0 0 0 3px rgba(255,255,255,.28)}
+.disc .wind{position:absolute;left:50%;top:50%;width:calc(24% + 52% * var(--fill,1));aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background-color:var(--c,#888);background-image:repeating-radial-gradient(circle,rgba(255,255,255,.16) 0 1px,rgba(0,0,0,.06) 1px 3px);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);transition:width .25s ease}
+.disc .hub{position:absolute;left:50%;top:50%;width:24%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:#3A3D44;box-shadow:0 0 0 1.5px rgba(255,255,255,.55)}
+
+.spool .brand{font-family:var(--display);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;line-height:1.05;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spool .color{font-size:11px;color:var(--ink-soft);line-height:1.15;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.04em;border:1px solid var(--ink);border-radius:2px;padding:0 4px}
+.tag{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;font-size:10px;border-radius:2px;padding:0 4px;border:1px solid}
+.tag.low{color:#A15C0E;border-color:#A15C0E}
+.tag.empty{color:var(--alert);border-color:var(--alert)}
+.tag.damp{color:var(--damp);border-color:var(--damp)}
+.tag.sealed{color:var(--ink);border-color:var(--ink)}
+.tag.ordered{color:var(--ink-soft);border-color:var(--ink-soft)}
+.age{font-family:var(--mono);font-size:10px;color:var(--ink-soft)}
+.drop{color:var(--ink-soft);flex:none;vertical-align:-2px}
+.drop.warn{color:var(--damp)}
+.spool .bot{display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:center}
+
+#ghost{position:fixed;z-index:90;pointer-events:none;width:120px;transform:rotate(-3deg) scale(1.05);box-shadow:0 12px 24px rgba(0,0,0,.28)}
+body.dragging{cursor:grabbing;user-select:none}
+
+/* ---------- projects (.3mf files) ---------- */
+.log{background:var(--panel);border:1px solid var(--rule);border-radius:4px;padding:16px}
+.log-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.dot{width:13px;height:13px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.3);flex:none}
+.usage{font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+.proj{display:flex;gap:10px;padding:11px 0;border-top:1px solid var(--rule)}
+.proj:first-of-type{border-top:0}
+.proj .thumb{width:62px;height:62px;flex:none;border:1px solid var(--rule);border-radius:3px;background:#fff center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;color:var(--ink-soft)}
+/* Tinted mesh preview: a flat colour clipped to the silhouette, with the
+   stored greyscale shading multiplied over it. Re-tints the moment you
+   change the colour, without keeping the geometry around. */
+.thumb.mesh{position:relative;isolation:isolate;background:#FBFAF8;overflow:hidden}
+.thumb.mesh::before{content:"";position:absolute;inset:0;background:var(--tint);
+  -webkit-mask-image:var(--img);mask-image:var(--img);
+  -webkit-mask-size:cover;mask-size:cover;-webkit-mask-position:center;mask-position:center}
+.thumb.mesh::after{content:"";position:absolute;inset:0;background:var(--img) center/cover no-repeat;
+  mix-blend-mode:multiply}
+.proj .body{flex:1;min-width:0}
+.proj .t{font-weight:600;font-size:13px;overflow-wrap:anywhere}
+.proj .d{font-family:var(--mono);font-size:11px;color:var(--ink-soft);margin-top:2px}
+.fil{display:flex;align-items:center;gap:6px;margin-top:5px}
+.fil select{flex:1;min-width:0;padding:2px 4px;border:1px solid var(--rule);border-radius:2px;background:#fff;font-family:var(--body);font-size:12px;color:var(--ink)}
+.fil .g{font-family:var(--mono);font-size:10px;color:var(--ink-soft)}
+.proj .acts{display:flex;gap:6px;margin-top:7px}
+.frow{display:flex;align-items:center;gap:6px;padding:5px 4px;border-radius:2px}
+.frow.over,.proj.over{background:rgba(0,0,0,.07);box-shadow:inset 0 0 0 1px var(--ink)}
+.caret{background:none;border:0;padding:0 2px;font-size:11px;color:var(--ink-soft);line-height:1}
+.fname{background:none;border:0;padding:0;font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;font-weight:600;font-size:14px;text-align:left}
+.fname:hover{text-decoration:underline}
+.fcount{font-family:var(--mono);font-size:11px;color:var(--ink-soft);margin-left:auto}
+.srow{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--rule);flex-wrap:wrap}
+.srow:first-of-type{border-top:0}
+.srow .led{flex:none}
+.srow input[type=text]{flex:1;min-width:120px;padding:6px 8px;border:1px solid var(--rule);border-radius:2px;background:#fff;font-family:var(--body);font-size:14px;color:var(--ink)}
+.srow select{padding:6px 8px;border:1px solid var(--rule);border-radius:2px;background:#fff;font-size:13px;color:var(--ink)}
+.srow input[type=number]{width:62px;padding:6px 8px;border:1px solid var(--rule);border-radius:2px;background:#fff;font-family:var(--mono);font-size:13px;color:var(--ink)}
+.srow .held{font-family:var(--mono);font-size:11px;color:var(--ink-soft);min-width:60px;text-align:right}
+.srow .never{display:flex;align-items:center;gap:5px;font-family:var(--display);text-transform:uppercase;letter-spacing:.09em;font-size:10px;color:var(--ink-soft);cursor:pointer}
+.srow .never input{margin:0}
+.srow .kname{min-width:132px;font-family:var(--display);text-transform:uppercase;letter-spacing:.09em;font-weight:600;font-size:13px}
+.srow .mini{font-family:var(--display);text-transform:uppercase;letter-spacing:.09em;font-size:10px;color:var(--ink-soft);margin-left:-4px}
+.sadd{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.ugroup{border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:12px}
+.ubar{display:flex;align-items:center;gap:9px;background:var(--machine);color:#EDECE8;padding:8px 11px;
+      font-family:var(--display);text-transform:uppercase;letter-spacing:.12em;font-weight:600;font-size:12px}
+.ubar .n{font-family:var(--mono);font-size:11px;color:#8A9099;letter-spacing:0}
+.ubar .add{margin-left:auto;background:none;border:1px solid #4A525C;color:#EDECE8;border-radius:2px;
+           font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;font-weight:600;
+           font-size:11px;padding:5px 9px 4px}
+.ubar .add:hover{background:#2C333D;border-color:#8A9099}
+.ubody{padding:0 11px 5px;background:var(--panel)}
+.ubody .srow:first-child{border-top:0}
+.ugroup.empty{margin-bottom:7px;border-color:transparent}
+.ugroup.empty .ubar{background:#22262E}
+.ugroup.empty .ubar span:first-child{opacity:.72}
+.fempty{font-size:12px;color:var(--ink-soft);padding:2px 0 6px}
+.proj .fn{font-family:var(--mono);font-size:10px;color:var(--ink-soft);overflow-wrap:anywhere}
+.dropzone{border:2px dashed var(--rule);border-radius:4px;padding:16px;text-align:center;font-size:13px;color:var(--ink-soft);cursor:pointer}
+.dropzone:hover{border-color:var(--ink);color:var(--ink)}
+
+/* ---------- swipe (touch only) ---------- */
+.swipe-hint{position:absolute;z-index:1;display:flex;align-items:center;padding:0 12px;border-radius:3px;background:var(--ink);color:var(--panel);font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;font-size:12px}
+.swipe-hint.danger{background:var(--alert)}
+.spool.swiping{z-index:2;transition:none}
+
+/* ---------- modal ---------- */
+.scrim{position:fixed;inset:0;background:rgba(20,22,26,.55);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:5vh 16px;overflow:auto}
+.sheet{background:var(--panel);border:1px solid var(--ink);border-radius:4px;width:min(460px,100%);padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.sheet h2{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;font-size:19px;margin:0 0 14px}
+.field{margin-bottom:11px}
+.field label{display:block;font-family:var(--display);text-transform:uppercase;letter-spacing:.11em;font-size:11px;color:var(--ink-soft);margin-bottom:3px}
+.field input[type=text],.field input[type=date],.field input[type=number],.field select{width:100%;padding:7px 9px;border:1px solid var(--rule);border-radius:2px;background:#fff;font-family:var(--body);font-size:14px;color:var(--ink)}
+.field input[type=color]{width:46px;height:34px;padding:2px;border:1px solid var(--rule);border-radius:2px;background:#fff}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.swatchrow{display:flex;gap:8px;align-items:center}
+.swatchrow input[type=text]{flex:1}
+.sheet-foot{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.sheet-foot .spacer{flex:1}
+
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(12px);background:var(--machine);color:#EDECE8;padding:9px 16px;border-radius:3px;font-size:13px;z-index:120;opacity:0;transition:opacity .18s,transform .18s;pointer-events:none;max-width:88vw;text-align:center}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.swatches{border:1px solid var(--rule);border-radius:4px;overflow:hidden}
+.swatch{display:flex;align-items:center;gap:12px;width:100%;padding:15px 14px;border:0;text-align:left;
+        box-shadow:inset 0 -1px 0 rgba(0,0,0,.14);cursor:pointer}
+.swatch:hover{filter:brightness(1.06)}
+.sw-name{font-family:var(--display);text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:16px;
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sw-meta{font-size:12px;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.sw-hex{font-family:var(--mono);font-size:11px;opacity:.72}
+.sw-own{font-family:var(--mono);font-size:11px;min-width:74px;text-align:right}
+.sw-own.none{opacity:.55}
+@media (max-width:700px){
+  .swatch{flex-wrap:wrap;gap:4px 10px;padding:13px 12px}
+  .sw-name{flex:1 1 100%}
+  .sw-meta{flex:1 1 auto;font-size:11px}
+  .sw-hex{opacity:.9}
+  .sw-own{min-width:auto}
+}
+.fab{position:fixed;right:20px;bottom:20px;z-index:70;background:var(--ink);color:var(--panel);
+     border:1px solid var(--ink);border-radius:3px;padding:12px 17px 11px;font-family:var(--display);
+     text-transform:uppercase;letter-spacing:.1em;font-weight:600;font-size:13px;
+     box-shadow:0 6px 20px rgba(0,0,0,.28)}
+.fab:hover{background:#000}
+.fab[hidden]{display:none}
+.touch-hint{display:none}
+
+/* ---------- phones ---------- */
+@media (pointer:coarse){
+  .touch-hint{display:block;font-size:12px;color:var(--ink-soft);margin:0 0 14px;padding:8px 10px;border:1px dashed var(--rule);border-radius:3px}
+}
+@media (max-width:700px){
+  body{padding-bottom:62px}
+  .bar{padding:10px 13px;gap:10px}
+  .wordmark{font-size:20px}
+  .stats{gap:13px}
+  .stat b{font-size:14px}
+  .stat i{font-size:9px}
+
+  /* tabs go under the thumb, not up by the notch */
+  .tabs{position:fixed;left:0;right:0;bottom:0;z-index:60;margin:0;gap:0;background:var(--machine);
+        border-top:1px solid #363C45;padding-bottom:env(safe-area-inset-bottom)}
+  .tab{flex:1;padding:13px 6px 11px;border-bottom:0;border-top:2px solid transparent;font-size:13px}
+  .tab.on{border-bottom-color:transparent;border-top-color:#EDECE8}
+  #toast{bottom:76px}
+  .fab{right:12px;bottom:calc(74px + env(safe-area-inset-bottom))}
+
+  .wrap{padding:16px 12px 28px}
+  .section{margin-bottom:20px}
+  .unit{padding:9px}
+  .slots{grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:6px}
+  .reorder{padding:10px}
+  .reorder .row{grid-template-columns:repeat(auto-fill,minmax(98px,1fr))}
+
+  /* dialogs become bottom sheets — reachable, and they don't jump around the screen */
+  .scrim{align-items:flex-end;padding:0;overscroll-behavior:contain}
+  .sheet{width:100%;border-radius:10px 10px 0 0;border-bottom:0;max-height:88vh;overflow:auto;
+         padding:18px 16px calc(20px + env(safe-area-inset-bottom))}
+  .sheet-foot .spacer{display:none}
+  .sheet-foot .btn{flex:1 1 calc(50% - 4px);min-height:44px}
+
+  /* iOS zooms the page whenever you focus a field under 16px */
+  .field input,.field select,.srow input,.srow select,.fil select{font-size:16px}
+  .btn{min-height:40px;padding:10px 14px 9px}
+  .btn.tiny{min-height:34px;padding:7px 10px 6px}
+  .caret{padding:8px 10px;font-size:13px}
+  .unit-head{min-height:46px;gap:9px}
+  .umove{height:40px;padding:4px 10px}
+  .ucaret{font-size:13px;width:16px}
+  .fname{font-size:15px;padding:6px 0}
+  .frow{padding:7px 2px}
+  .proj .thumb{width:54px;height:54px}
+  .proj .acts .btn{flex:1}
+
+  /* setup: name on its own line, controls under it */
+  .srow{gap:7px 8px;padding:12px 0}
+  .ubar{padding:9px 11px}
+  .ubar .add{min-height:34px}
+  .srow input[type=text]{flex:1 1 100%}
+  .srow .kname{min-width:100%}
+  .srow .held{min-width:auto;margin-left:auto}
+}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="bar">
+  <div class="wordmark">Filament<span>/</span>Manager</div>
+  <div class="tabs">
+    <button class="tab on" data-tab="bench">Spools</button>
+    <button class="tab" data-tab="swatches">Swatches</button>
+    <button class="tab" data-tab="projects">Projects<span class="n" id="tab-count"></span></button>
+    <button class="tab" data-tab="settings">Setup</button>
+  </div>
+  <div class="stats">
+    <div class="stat"><b id="s-count">0</b><i>spools</i></div>
+    <div class="stat"><b id="s-loaded">0</b><i>slots free</i></div>
+    <div class="stat damp" id="stat-dry"><b id="s-dry">0</b><i>to dry</i></div>
+    <div class="stat warn"><b id="s-order">0</b><i>to reorder</i></div>
+  </div>
+</div>
+
+<div class="wrap" id="tab-bench">
+  <p class="touch-hint"><b>Press and hold</b> a spool to drag it somewhere else. Swipe it <b>left</b> to retire,
+    <b>right</b> to flag it low, or tap it for everything else.</p>
+  <div>
+    <div id="bench-sections"></div>
+
+    <div class="section">
+      <div class="section-head"><div class="eyebrow">Unassigned</div><div class="hair"></div><div class="meta" id="spares-meta"></div></div>
+      <div class="reorder spares" data-drop="spares"><div class="row" id="spares-row"></div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="eyebrow">Reorder</div><div class="hair"></div><div class="meta" id="reorder-meta"></div></div>
+      <div class="reorder" data-drop="reorder"><div class="row" id="reorder-row"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap narrow" id="tab-swatches" hidden>
+  <div class="log">
+    <div class="log-head"><div class="eyebrow">Swatches</div><div class="hair"></div>
+      <div class="meta mono" style="font-size:11px;color:var(--ink-soft)" id="swatch-meta"></div></div>
+    <p class="empty-note" style="max-width:62ch">Every colour you own, sorted by hue. Rolls you buy land here
+      automatically and stay after the last one runs out — so this doubles as a record of what you used to have.</p>
+    <div class="chips" id="swatch-filter"></div>
+    <div class="swatches" id="swatch-list"></div>
+  </div>
+</div>
+
+<div class="wrap narrow" id="tab-settings" hidden>
+  <div class="log">
+    <div class="log-head"><div class="eyebrow">Machines and storage</div><div class="hair"></div>
+      <div class="meta mono" style="font-size:11px;color:var(--ink-soft)" id="setup-meta"></div></div>
+    <p class="empty-note" style="max-width:62ch">Name these whatever you call them — AMS, MMU, CFS, "the beast". A printer holds
+      the spools mounted on the machine itself: one for an external spool holder, four if they sit on top.
+      <b>Weeks dry</b> is how long a spool keeps before this place flags it for drying — around 4 weeks out
+      in the open or on a printer, and much longer in a sealed box with desiccant. Set it to whatever matches
+      your climate; a dryer has no countdown, since nothing goes damp inside one.</p>
+    <div id="setup-list"></div>
+    <div style="margin-top:28px;border-top:1px solid var(--rule);padding-top:16px">
+      <div class="log-head"><div class="eyebrow">Drying intervals</div><div class="hair"></div>
+        <label class="never" style="margin-left:auto;font-size:11px"><input type="checkbox" id="drytrack"> track drying</label></div>
+      <p class="empty-note" style="max-width:62ch">How long a spool keeps in each kind of place before it gets
+        flagged for drying. Set once per type — every box you own uses the same number. Tune it to your
+        climate: a damp garage wants less, a dehumidified room more, and if you live somewhere
+        genuinely dry, switch <b>track drying</b> off and every trace of it disappears — or set a
+        single type to <b>never</b> if it's just your boxes you trust.</p>
+      <div id="dry-settings"></div>
+    </div>
+
+    <div style="margin-top:28px;border-top:1px solid var(--rule);padding-top:16px">
+      <div class="log-head"><div class="eyebrow">Reminders</div><div class="hair"></div></div>
+      <p class="empty-note" style="max-width:62ch">A nudge when spools are past their drying window, at most once a day.
+        Your browser has to grant permission first, and it will ask the moment you tick this.</p>
+      <div class="srow" style="border-top:0">
+        <span class="kname">Drying due</span>
+        <label class="never"><input type="checkbox" id="notify-toggle"> notify me</label>
+        <span class="held" id="notify-state" style="min-width:auto"></span>
+      </div>
+      <p class="empty-note" style="max-width:62ch;margin-top:4px">Reminders arrive while the page is open. Add this to
+        your Android home screen and Chrome will also check in the background every so often —
+        <span id="notify-bg">background checks inactive</span>. Chrome decides how often; a couple of times a day is typical.</p>
+    </div>
+
+    <div class="sadd" style="margin-top:28px;border-top:1px solid var(--rule);padding-top:16px">
+      <button class="btn danger" id="reset-btn">Reset everything</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap narrow" id="tab-projects" hidden>
+  <div class="log">
+    <div class="log-head"><div class="eyebrow">Projects</div><div class="hair"></div>
+      <div class="meta mono" id="log-meta" style="font-size:11px;color:var(--ink-soft)"></div></div>
+    <div class="dropzone" id="dropzone">Pick <b>.3mf</b> or <b>.stl</b> files to keep track of</div>
+    <input type="file" id="fileinput" accept=".3mf,.stl" multiple hidden>
+    <div id="projects"></div>
+  </div>
+</div>
+
+<button class="fab" id="fab" hidden></button>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ============================ data ============================ */
+const MATERIALS = ["PLA","PLA+","PLA-CF","PETG","PETG-CF","ABS","ASA","TPU","PC","PA-CF","PA-GF","PVA"];
+const KEY = "filament-bench:v2";
+let saveTimer = null, storageOK = true;
+let flash = new Set();
+const mark = (...ids) => ids.forEach(i => i && flash.add(i));
+const uid = p => p + Math.random().toString(36).slice(2, 8);
+
+/* How long a spool is assumed to stay dry in each kind of place, in weeks.
+   Every unit carries its own number and Setup lets you change it; these are
+   only the starting values. A dryer has none — nothing dries out inside it. */
+const DEFAULT_DRY = { printer: 4, ams: 4, dryer: null, box: 26, shelf: 4 };
+const LOOSE_DRY = 4;    /* the spare shelf and reorder queue aren't units */
+/* Drying is off entirely if you switch it off, or if nothing has an interval. */
+const dryingOn = () => state.dryTracking !== false && Object.values(state.dryWeeks).some(Boolean);
+/* Days read better up close, weeks read better after a fortnight. */
+const dur = d => d < 14 ? d + " days" : Math.round(d / 7) + " weeks";
+const durShort = d => d < 14 ? d + "d" : Math.round(d / 7) + "w";
+const iso = d => d.toISOString().slice(0, 10);
+const today = () => iso(new Date());
+const ago = n => iso(new Date(Date.now() - n * 864e5));
+const daysSince = d => Math.max(0, Math.round((Date.now() - new Date(d + "T00:00:00").getTime()) / 864e5));
+const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString(undefined, { day:"numeric", month:"short" });
+
+function seed() {
+  const W = (brand, material, colorName, hex) => ({ id: uid("sw-"), brand, material, colorName, hex });
+  const swatches = [
+    W("Bambu Lab","PLA","Basic Black","#1B1B1D"),
+    W("Bambu Lab","PLA","Bambu Green","#00AE42"),
+    W("Polymaker","PETG","Grey","#7C7F84"),
+    W("Bambu Lab","PVA","Support White","#EDE9E0"),
+    W("Prusament","PLA","Galaxy Silver","#5E6672"),
+    W("Sunlu","PLA+","Cold White","#F4F4F0"),
+    W("eSun","PETG","Solid Orange","#E4611B"),
+    W("Overture","TPU","Clear","#D8DDE0"),
+    W("Polymaker","ABS","Signal Red","#B0221F"),
+    W("Prusament","PETG","Jet Black","#141416"),
+    W("Sunlu","PLA","Sky Blue","#3E7BD1"),
+    W("eSun","PLA+","Fire Engine Red","#C2231C"),
+    W("Bambu Lab","PLA","Matte Ivory","#EFE7D6"),
+    W("Polymaker","ASA","Charcoal","#3B3E44"),
+    W("Overture","PLA","Forest Green","#2E6B45"),
+    W("Sunlu","PETG","Transparent Blue","#5FA8D3"),
+    W("Bambu Lab","PLA","Sunflower Yellow","#F5C518"),
+    W("eSun","PLA","Purple","#6E4B9E"),
+    W("Bambu Lab","PLA","Cyber Orange","#F35C1E"),   /* long gone, kept as a record */
+    W("Bambu Lab","PLA-CF","Carbon Black","#26282B"),
+    W("Polymaker","PETG-CF","Graphite","#3A3C40"),
+    W("Polymaker","PA-CF","Nylon Black","#1F2124"),
+  ];
+  const w = n => swatches.find(x => x.colorName === n).id;
+
+  const spools = [];
+  const S = (colorName, dried, low) => {
+    const s = { id: uid("sp-"), swatchId: w(colorName), low: !!low, sealed: false, ordered: false,
+                driedAt: dried == null ? null : ago(dried) };
+    spools.push(s);
+    return s.id;
+  };
+  const sealed = (colorName, n = 1) => {
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const id = S(colorName, null);
+      spools.find(x => x.id === id).sealed = true;
+      out.push(id);
+    }
+    return out;
+  };
+
+  const units = [
+    { id:"prn-1", kind:"printer", name:"X1 Carbon", slots:[null] },
+    { id:"ams-a", kind:"ams", name:"AMS unit A",
+      slots:[S("Basic Black",12), S("Bambu Green",64,true), S("Grey",41), S("Support White",4)] },
+    { id:"ams-b", kind:"ams", name:"AMS unit B",
+      slots:[S("Galaxy Silver",19), S("Signal Red",96), null, null] },
+    { id:"dryer-1", kind:"dryer", name:"Dryer", slots:[S("Clear",210), S("Transparent Blue",118), null, null] },
+    { id:"box-1", kind:"box", name:"Box 1", slots:[S("Cold White",33), S("Solid Orange",72,true), null, null] },
+    { id:"box-2", kind:"box", name:"Box 2", slots:[S("Jet Black",9), S("Sky Blue",47), null, null] },
+    { id:"box-3", kind:"box", name:"Box 3", slots:[S("Fire Engine Red",15), S("Matte Ivory",26), S("Charcoal",44), null] },
+    { id:"shelf-1", kind:"shelf", name:"Shelf", slots:[S("Forest Green",7), S("Purple",35), null, null, null, null] },
+  ];
+
+  /* The green is nearly out, so a replacement is waiting. Black and white get
+     bought by the handful, so they sit as piles. */
+  const unassigned = [...sealed("Bambu Green"), ...sealed("Basic Black", 4), ...sealed("Cold White", 3)];
+
+  const dead = S("Sunflower Yellow", null);
+  spools.find(x => x.id === dead).ordered = true;
+
+  return {
+    swatches, spools, units,
+    spares: unassigned,
+    reorder: [dead],
+    projects: [],
+    folders: [{ id: "fd-keys", name: "Keychains", parent: null, open: true }],
+    dryWeeks: { ...DEFAULT_DRY },
+    dryTracking: true,
+    notify: false,
+    notifiedOn: null,
+    deleted: {},
+  };
+}
+
+let state = seed();
+
+/* ============================ storage ============================ */
+/* IndexedDB is the real backend: a service worker can read it, which is how
+   reminders keep working after the tab is gone. window.storage is the fallback
+   for sandboxed previews where IndexedDB is unavailable. */
+const storage = (() => {
+  let mode = null;
+  const openDb = () => new Promise((res, rej) => {
+    const r = indexedDB.open("filament-manager", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("kv");
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  const tx = async (m, fn) => {
+    const db = await openDb();
+    return new Promise((res, rej) => {
+      const t = db.transaction("kv", m);
+      const rq = fn(t.objectStore("kv"));
+      rq.onsuccess = () => res(rq.result);
+      rq.onerror = () => rej(rq.error);
+    });
+  };
+  const idb = {
+    get: () => tx("readonly", s => s.get("state")),
+    set: v => tx("readwrite", s => s.put(v, "state")),
+  };
+  const fallback = {
+    get: async () => { const r = await window.storage.get(KEY); return r && r.value ? JSON.parse(r.value) : null; },
+    set: v => window.storage.set(KEY, JSON.stringify(v)),
+  };
+  const pick = async () => {
+    if (mode) return mode;
+    if (typeof indexedDB !== "undefined") {
+      try { await idb.get(); return (mode = idb); } catch (e) { /* blocked — fall through */ }
+    }
+    return (mode = fallback);
+  };
+  return {
+    async get() { return (await pick()).get(); },
+    async set(v) { return (await pick()).set(v); },
+  };
+})();
+
+async function load() {
+  try {
+    const saved = await storage.get();
+    if (saved) { state = saved; migrate(); }
+  } catch (e) {
+    try { await storage.set(state); } catch (e2) { storageOK = false; }
+  }
+  const now = Date.now();
+  records().forEach(r => { if (r && r.id && !r.updatedAt) r.updatedAt = now; });
+  resnap();
+  render();
+  notifyCheck();
+}
+function migrate() {
+  if (!state.deleted) state.deleted = {};
+  if (!("notify" in state)) { state.notify = false; state.notifiedOn = null; }
+  if (!state.units.some(u => u.kind === "dryer")) {
+    const at = state.units.findIndex(u => u.kind === "box");
+    state.units.splice(at < 0 ? state.units.length : at, 0,
+      { id:"dryer-1", kind:"dryer", name:"Dryer", slots:[null,null,null,null] });
+  }
+  if (!state.spares) state.spares = [];
+  if (!state.swatches) state.swatches = [];
+  /* Spools used to carry their own brand/colour; lift each one onto a swatch. */
+  const key = o => [o.brand, o.material, o.colorName, o.hex].join("|").toLowerCase();
+  const byKey = new Map(state.swatches.map(w => [key(w), w.id]));
+  state.spools.forEach(s => {
+    if (s.swatchId) return;
+    const k = key(s);
+    if (!byKey.has(k)) {
+      const w = { id: uid("sw-"), brand: s.brand, material: s.material, colorName: s.colorName, hex: s.hex };
+      state.swatches.push(w);
+      byKey.set(k, w.id);
+    }
+    s.swatchId = byKey.get(k);
+    delete s.brand; delete s.material; delete s.colorName; delete s.hex;
+  });
+  if (!state.projects) state.projects = [];
+  if (!state.folders) state.folders = [];
+  state.projects.forEach(p => {
+    if (!("folder" in p)) p.folder = null;
+    if (!p.title) p.title = p.name;
+    if (!p.kind) p.kind = /\.stl$/i.test(p.name || "") ? "stl" : "3mf";
+    if (!p.note) p.note = "";
+    if (!p.uses) {
+      /* was: filaments from the file + a spool per filament. Now: colours from the library. */
+      p.uses = (p.filaments || []).map((f, i) => {
+        const s = (p.spoolIds || [])[i] ? spool(p.spoolIds[i]) : null;
+        return { type: f.type, color: f.color, grams: f.grams, swatchId: s ? s.swatchId : matchSwatch(f.type, f.color) };
+      });
+      delete p.filaments; delete p.spoolIds;
+    }
+  });
+  delete state.prints;
+  /* Intervals used to live on each unit; lift them to the type they belong to. */
+  if (!state.dryWeeks || typeof state.dryWeeks !== "object") state.dryWeeks = { ...DEFAULT_DRY };
+  if (!("dryTracking" in state)) state.dryTracking = true;
+  state.units.forEach(u => {
+    const old = "dryDays" in u ? (u.dryDays ? Math.round(u.dryDays / 7) : null) : u.dryWeeks;
+    if (old !== undefined && old !== DEFAULT_DRY[u.kind]) state.dryWeeks[u.kind] = old;
+    delete u.dryDays; delete u.dryWeeks;
+  });
+  Object.keys(DEFAULT_DRY).forEach(k => {
+    if (!(k in state.dryWeeks)) state.dryWeeks[k] = DEFAULT_DRY[k];
+  });
+  state.spools.forEach(s => {
+    if (!("driedAt" in s)) s.driedAt = null;
+    if (!("sealed" in s)) s.sealed = false;
+    if (!("ordered" in s)) s.ordered = false;
+  });
+}
+/* ---------- sync groundwork ----------
+   Every record carries when it last changed, and a deletion leaves a tombstone
+   behind. Both are worked out by diffing against the last saved snapshot, so no
+   mutation site has to remember to do it — and none can forget. Collapsed state
+   is left out of the comparison on purpose: which boxes you folded shut is a
+   property of the device you're holding, not of the data. */
+let snap = new Map();
+const records = () => [...state.spools, ...state.swatches, ...state.units,
+                       ...state.projects, ...state.folders];
+const fingerprint = r => {
+  const { updatedAt, open, ...rest } = r;
+  return JSON.stringify(rest);
+};
+function resnap() {
+  snap = new Map(records().filter(r => r && r.id).map(r => [r.id, fingerprint(r)]));
+}
+function stampChanges() {
+  const now = Date.now(), seen = new Set();
+  for (const r of records()) {
+    if (!r || !r.id) continue;
+    seen.add(r.id);
+    const fp = fingerprint(r);
+    if (snap.get(r.id) !== fp) { r.updatedAt = now; snap.set(r.id, fp); }
+  }
+  for (const id of [...snap.keys()]) {
+    if (seen.has(id)) continue;
+    snap.delete(id);
+    state.deleted[id] = now;          /* so another device can't resurrect it */
+  }
+  const cutoff = now - 90 * 864e5;    /* a tombstone outlives any plausible offline stretch */
+  for (const id of Object.keys(state.deleted)) if (state.deleted[id] < cutoff) delete state.deleted[id];
+}
+
+/* The service worker shouldn't have to reimplement any of this, so the page
+   leaves it a flat list of "this colour is overdue on this date". */
+function dueList() {
+  if (!dryingOn()) return [];
+  const out = [];
+  state.spools.forEach(s => {
+    if (s.sealed || inReorder(s.id)) return;
+    const d = dryState(s);
+    if (!d.weeks || d.drying || !s.driedAt) return;
+    const at = new Date(new Date(s.driedAt + "T00:00:00").getTime() + d.window * 864e5);
+    out.push({ name: info(s).colorName, at: iso(at) });
+  });
+  return out;
+}
+
+function save() {
+  stampChanges();
+  state.due = dueList();
+  if (!storageOK) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try { await storage.set(state); }
+    catch (e) { storageOK = false; toast("Changes won't be saved — storage is unavailable."); }
+  }, 250);
+}
+
+/* ============================ helpers ============================ */
+const spool = id => state.spools.find(s => s.id === id);
+const swatch = id => state.swatches.find(w => w.id === id);
+const GONE = { brand: "Unknown", material: "?", colorName: "Unknown colour", hex: "#9A9A9A" };
+/* A spool is an instance of a swatch. The swatch holds the identity. */
+const info = s => (s && swatch(s.swatchId)) || GONE;
+const unit = id => state.units.find(u => u.id === id);
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+
+function inReorder(id) { return state.reorder.includes(id); }
+function inSpares(id) { return state.spares.includes(id); }
+function fill(s) { return inReorder(s.id) ? 0 : (s.low ? .42 : 1); }
+function locationOf(id) {
+  for (const u of state.units) {
+    const i = u.slots.indexOf(id);
+    if (i > -1) return { unitId: u.id, slot: i };
+  }
+  if (inSpares(id)) return { zone: "spares" };
+  if (inReorder(id)) return { zone: "reorder" };
+  return null;
+}
+function detach(id) {
+  for (const u of state.units) {
+    const i = u.slots.indexOf(id);
+    if (i > -1) u.slots[i] = null;
+  }
+  state.reorder = state.reorder.filter(x => x !== id);
+  state.spares = state.spares.filter(x => x !== id);
+}
+function place(id, target) {
+  if (!id) return;
+  const from = locationOf(id);
+  if (target.zone) {
+    if (from && from.zone === target.zone) return;
+    detach(id);
+    (target.zone === "spares" ? state.spares : state.reorder).push(id);
+  } else {
+    const u = unit(target.unitId);
+    if (!u) return;
+    const displaced = u.slots[target.slot];
+    if (displaced === id) return;
+    const s = spool(id);
+    detach(id);
+    u.slots[target.slot] = id;
+    if (displaced) {
+      /* Always a straight swap: the roll that was there goes exactly where the
+         dragged one came from, whether that's another slot or a loose zone. */
+      if (from && from.unitId) unit(from.unitId).slots[from.slot] = displaced;
+      else if (from && from.zone === "reorder") state.reorder.push(displaced);
+      else state.spares.push(displaced);
+    }
+    /* A sealed roll going into the printer or the dryer is a roll you just opened. */
+    const opened = s && s.sealed && (isMachine(u) || u.kind === "dryer");
+    if (opened) { s.sealed = false; s.driedAt = today(); }
+
+    /* Nothing here is ever thrown away, so always say where the other one went. */
+    const notes = [];
+    if (opened) notes.push(`${info(s).colorName} opened`);
+    if (displaced) {
+      mark(displaced);
+      const dest = from && from.unitId ? unit(from.unitId).name
+                 : from && from.zone === "reorder" ? "Reorder" : "Unassigned";
+      notes.push(`${info(spool(displaced)).colorName} → ${esc(dest)}`);
+    }
+    if (notes.length) toast(notes.join(" · "));
+  }
+  mark(id); save(); render();
+}
+function firstFreeSlot() {
+  /* Storage first — a new roll goes on the shelf, not onto the printer. */
+  const isStore = u => u.kind === "box" || u.kind === "shelf";
+  const order = [...state.units].sort((a, b) => (isStore(a) ? 0 : 1) - (isStore(b) ? 0 : 1));
+  for (const u of order) {
+    if (u.kind === "dryer") continue;
+    const i = u.slots.indexOf(null);
+    if (i > -1) return { unitId: u.id, slot: i };
+  }
+  return { zone: "reorder" };
+}
+/* How wet is it? Unknown dates stay unknown — no nagging without evidence. */
+function dryState(s) {
+  const loc = locationOf(s.id);
+  const u = loc && loc.unitId ? unit(loc.unitId) : null;
+  const drying = !!(u && u.kind === "dryer");
+  const weeks = u ? state.dryWeeks[u.kind] : LOOSE_DRY;
+  const window = weeks * 7;
+  if (!s.driedAt || !weeks) return { drying, weeks, window, days: null, stale: false, level: null };
+  const days = daysSince(s.driedAt);
+  /* Four steps, not a percentage — a droplet can't honestly show 37%. */
+  const level = drying ? null : Math.max(0, Math.min(4, Math.floor(days / window * 4)));
+  return { drying, weeks, window, days, level, stale: !drying && days > window };
+}
+const needsDrying = () => state.spools.filter(s => !inReorder(s.id) && !s.sealed && dryState(s).stale);
+/* Spools in load order: printer first, then dryer, boxes, shelf. */
+function allSpoolsRanked() {
+  const rank = { printer: 0, ams: 1, dryer: 2, box: 3, shelf: 4 };
+  const out = [];
+  [...state.units].sort((a, b) => rank[a.kind] - rank[b.kind])
+    .forEach(u => u.slots.forEach(id => { if (id) out.push(spool(id)); }));
+  state.spares.forEach(id => out.push(spool(id)));
+  return out;
+}
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("on");
+  clearTimeout(t._x); t._x = setTimeout(() => t.classList.remove("on"), 2600);
+}
+
+/* ============================ render ============================ */
+const SECTIONS = [
+  { kind: "printer", label: "Printers", grid: "grid-ams" },
+  { kind: "ams",     label: "AMS / MMU", grid: "grid-ams" },
+  { kind: "dryer",   label: "Drying",   grid: "grid-ams" },
+  { kind: "box",     label: "Airtight boxes", grid: "grid-box" },
+  { kind: "shelf",   label: "Open shelves",   grid: "grid-box" },
+];
+const isMachine = u => u.kind === "ams" || u.kind === "printer";
+
+function spoolHTML(s, n = 1) {
+  const empty = inReorder(s.id);
+  const tag = empty ? `<span class="tag empty">Empty</span>${s.ordered ? `<span class="tag ordered">Ordered</span>` : ""}`
+            : s.sealed ? `<span class="tag sealed">Sealed</span>`
+            : s.low ? `<span class="tag low">Low</span>` : "";
+  const w = info(s);
+  const d = dryState(s);
+  let dry = "", says = "";
+  if (empty || s.sealed || !dryingOn()) { /* nothing to dry */ }
+  else if (d.drying) { dry = `<span class="tag damp">Drying</span>`; says = ", in the dryer"; }
+  else if (d.stale) { dry = `<span class="tag damp">Dry me</span>` + droplet(4, dropTitle(s, d), "warn"); says = `, dried ${dur(d.days)} ago`; }
+  else if (!d.weeks) { /* this place never goes damp */ }
+  else if (d.level !== null) { dry = droplet(d.level, dropTitle(s, d), d.level >= 3 ? "warn" : ""); }
+  else { dry = `<span class="age" title="No drying logged yet">—</span>`; }
+  return `<div class="spool${flash.has(s.id) ? " flash" : ""}${n > 1 ? " stacked" : ""}" data-id="${s.id}" tabindex="0" role="button"
+      aria-label="${esc(w.brand)} ${esc(w.material)} ${esc(w.colorName)}${empty ? ", empty" : s.sealed ? ", sealed" : s.low ? ", running low" : ""}${says}">
+    ${n > 1 ? `<span class="stack">${n}</span>` : ""}
+    <div class="disc" style="--c:${esc(w.hex)};--fill:${fill(s)}">
+      <div class="flange"></div><div class="wind"></div><div class="hub"></div>
+    </div>
+    <div class="brand">${esc(w.brand)}</div>
+    <div class="color">${esc(w.colorName)}</div>
+    <div class="bot"><span class="chip">${esc(w.material)}</span>${tag}${dry}</div>
+  </div>`;
+}
+
+/* A teardrop is wider at the bottom, so equal steps of height would lie about
+   how much has filled. These waterlines are spaced by area instead. */
+const DROP_PATH = "M6 1C6 1 10.9 7.1 10.9 10.6A4.9 4.9 0 0 1 1.1 10.6C1.1 7.1 6 1 6 1Z";
+const WATERLINE = [16, 12.7, 10.3, 7.2, 0];
+let dropSeq = 0;
+function droplet(level, title, cls) {
+  const id = "wd" + (++dropSeq);
+  return `<svg class="drop${cls ? " " + cls : ""}" viewBox="0 0 12 16" width="11" height="14" role="img"
+      aria-label="${esc(title)}"><title>${esc(title)}</title>
+    <clipPath id="${id}"><path d="${DROP_PATH}"/></clipPath>
+    <g clip-path="url(#${id})">
+      <rect x="0" y="0" width="12" height="16" fill="currentColor" opacity=".12"/>
+      <rect x="0" y="${WATERLINE[level]}" width="12" height="16" fill="currentColor"/>
+    </g>
+    <path d="${DROP_PATH}" fill="none" stroke="currentColor" stroke-width="1" opacity=".6"/>
+  </svg>`;
+}
+const dropTitle = (s, d) => d.level === 4
+  ? `Past its ${d.weeks}-week window — dried ${dur(d.days)} ago`
+  : `${["Dry", "A quarter through", "Halfway through", "Three quarters through"][d.level]} · dried ${esc(fmtDate(s.driedAt))}, good for about ${dur(d.window - d.days)} more`;
+
+function spoolChip(s) {
+  const w = info(s);
+  return `<div class="spool mini${flash.has(s.id) ? " flash" : ""}" data-id="${s.id}" tabindex="0" role="button"
+      title="${esc(w.brand)} ${esc(w.colorName)}${s.sealed ? " · sealed" : s.low ? " · running low" : ""}"
+      aria-label="${esc(w.brand)} ${esc(w.material)} ${esc(w.colorName)}">
+    <span class="disc" style="--c:${esc(w.hex)};--fill:${fill(s)}">
+      <span class="flange"></span><span class="wind"></span><span class="hub"></span>
+    </span>${esc(w.material)}${s.sealed ? `<span class="sealed-dot"></span>` : ""}${(() => {
+      const d = dryState(s);
+      return dryingOn() && !s.sealed && d.level >= 3 ? droplet(d.level, dropTitle(s, d), "warn") : "";
+    })()}
+  </div>`;
+}
+
+function unitHTML(u) {
+  const used = u.slots.filter(Boolean).length;
+  const open = u.open !== false;
+  const foot = u.kind !== "dryer" || !open ? "" : `<div class="vent"><span class="slits"></span></div>`;
+  const body = open
+    ? `<div class="slots">${u.slots.map((id, i) => {
+        const inner = id ? spoolHTML(spool(id)) : `<span class="free-label">Empty</span>`;
+        return `<div class="slot ${id ? "taken" : "free"}" data-drop="slot" data-unit="${u.id}" data-slot="${i}">
+                  <span class="idx">${i + 1}</span>${inner}</div>`;
+      }).join("")}</div>`
+    : used
+      ? `<div class="mini-row">${u.slots.filter(Boolean).map(id => spoolChip(spool(id))).join("")}</div>`
+      : `<div class="mini-empty">Empty</div>`;
+  return `<div class="unit ${u.kind}${isMachine(u) ? " machine" : ""}${open ? "" : " collapsed"}"
+       data-unit="${u.id}"${open ? "" : ` data-drop="unit"`}>
+    <div class="unit-head" data-ucollapse="${u.id}"${used ? ` data-grip="${u.id}"` : ""} role="button" aria-expanded="${open}"
+         aria-label="${esc(u.name)}, ${open ? "collapse" : "expand"}">
+      <span class="ucaret">${open ? "▾" : "▸"}</span>
+      ${isMachine(u) ? `<span class="led"></span>` : ""}
+      ${u.kind === "dryer" ? `<span class="led heat"></span>` : ""}
+      <span class="unit-name">${esc(u.name)}</span>
+      <span class="count">${used}/${u.slots.length}</span>
+      ${u.kind === "dryer" && dryingOn() ? `<button class="btn ghost tiny" data-cycle="${u.id}">Mark as dried</button>` : ""}
+      ${used ? `<button class="umove" data-umove="${u.id}"
+        title="Drag to move these ${used} spool${used === 1 ? "" : "s"}, or tap to choose where"
+        aria-label="Move ${used} spool${used === 1 ? "" : "s"}">
+        <svg viewBox="0 0 12 12" width="13" height="13" aria-hidden="true">
+          <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+          <circle cx="6" cy="6" r="1.6" fill="currentColor"/>
+        </svg><span class="n">${used}</span>
+        <svg viewBox="0 0 8 14" width="8" height="14" aria-hidden="true">
+          <path d="M4 1.2v11.6M4 1.2 1.7 3.8M4 1.2l2.3 2.6M4 12.8l-2.3-2.6M4 12.8l2.3-2.6"
+                fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>` : ""}
+    </div>
+    ${body}${foot}
+  </div>`;
+}
+
+/* Identical rolls in a loose zone read as one pile with a count. */
+function stacks(ids) {
+  const out = [], seen = new Map();
+  ids.forEach(id => {
+    const s = spool(id);
+    const k = [s.swatchId, s.low, s.sealed].join("|");
+    if (seen.has(k)) seen.get(k).ids.push(id);
+    else { const g = { ids: [id] }; seen.set(k, g); out.push(g); }
+  });
+  return out;
+}
+const sameAs = (s, ids) => ids.filter(x => spool(x).swatchId === s.swatchId).length;
+
+function render() {
+  const freeSlots = state.units.reduce((n, u) => u.kind === "dryer" ? n : n + u.slots.filter(x => !x).length, 0);
+  document.getElementById("s-count").textContent = state.spools.length;
+  document.getElementById("s-loaded").textContent = freeSlots;
+  document.getElementById("s-order").textContent = state.reorder.length;
+  document.getElementById("s-dry").textContent = needsDrying().length;
+  document.getElementById("stat-dry").hidden = !dryingOn();
+
+  document.getElementById("bench-sections").innerHTML = SECTIONS.map(sec => {
+    const us = state.units.filter(u => u.kind === sec.kind);
+    if (!us.length) return "";
+    const held = us.reduce((n, u) => n + u.slots.filter(Boolean).length, 0);
+    const cap = us.reduce((n, u) => n + u.slots.length, 0);
+    let meta = held + " of " + cap + " slots loaded";
+    if (sec.kind === "dryer" && dryingOn()) {
+      const due = needsDrying().length;
+      meta = due ? due + (due === 1 ? " spool past its window" : " spools past their window") : "everything in date";
+    }
+    return `<div class="section">
+      <div class="section-head"><div class="eyebrow">${esc(sec.label)}</div><div class="hair"></div><div class="meta">${esc(meta)}</div></div>
+      <div class="${sec.grid}">${us.map(unitHTML).join("")}</div>
+    </div>`;
+  }).join("");
+
+  const shelf = document.getElementById("spares-row");
+  shelf.innerHTML = state.spares.length
+    ? stacks(state.spares).map(g => spoolHTML(spool(g.ids[0]), g.ids.length)).join("")
+    : `<p class="empty-note">Nothing unassigned. New rolls land here until you drag them into a unit; identical ones stack.</p>`;
+  document.getElementById("spares-meta").textContent = state.spares.length ? state.spares.length + " waiting" : "";
+
+  const row = document.getElementById("reorder-row");
+  row.innerHTML = state.reorder.length
+    ? stacks(state.reorder).map(g => spoolHTML(spool(g.ids[0]), g.ids.length)).join("")
+    : `<p class="empty-note">Nothing to reorder. Drag a spool here when it runs out and it'll queue up for a restock.</p>`;
+  const onOrder = state.reorder.filter(id => spool(id).ordered).length;
+  document.getElementById("reorder-meta").textContent =
+    state.reorder.length ? state.reorder.length + " to buy" + (onOrder ? " · " + onOrder + " ordered" : "") : "";
+
+  renderSwatches();
+  renderProjects();
+  renderSetup();
+
+  flash.clear();
+}
+
+/* ============================ drag & drop ============================ */
+let drag = null;
+function targetFrom(el) {
+  const t = el && el.closest("[data-drop]");
+  if (!t) return null;
+  if (t.dataset.drop === "unit") {
+    const u = unit(t.dataset.unit);
+    const i = u ? u.slots.indexOf(null) : -1;
+    return i > -1 ? { el: t, target: { unitId: u.id, slot: i } } : null;   /* full: nothing to drop into */
+  }
+  if (t.dataset.drop !== "slot") return { el: t, target: { zone: t.dataset.drop } };
+  return { el: t, target: { unitId: t.dataset.unit, slot: +t.dataset.slot } };
+}
+const clearOver = () => document.querySelectorAll(".over").forEach(e => e.classList.remove("over"));
+
+/* Touch swipes, mouse drags. Trying to do both on one pointer fights itself:
+   a horizontal drag and a horizontal swipe are the same gesture. */
+let udrag = null, lastUnitDrag = 0;
+document.addEventListener("pointerdown", e => {
+  const grip = e.target.closest("[data-grip]");
+  if (grip) {
+    if (e.pointerType === "touch" || e.button > 0) return;   /* touch taps open the picker instead */
+    const u = unit(grip.dataset.grip);
+    if (!u || !u.slots.some(Boolean)) return;
+    udrag = { id: u.id, x: e.clientX, y: e.clientY, active: false, n: u.slots.filter(Boolean).length };
+    grip.setPointerCapture(e.pointerId);
+    return;
+  }
+  const card = e.target.closest(".spool");
+  if (!card || e.button > 0) return;
+  if (e.pointerType === "touch") { swipeStart(card, e); return; }
+  drag = { id: card.dataset.id, x: e.clientX, y: e.clientY, card, active: false };
+  card.setPointerCapture(e.pointerId);
+});
+document.addEventListener("pointermove", e => {
+  if (udrag) { unitDragMove(e); return; }
+  if (swipe) { swipeMove(e); return; }
+  if (!drag) return;
+  if (!drag.active) {
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 7) return;
+    drag.active = true;
+    document.body.classList.add("dragging");
+    const g = drag.card.cloneNode(true);
+    g.id = "ghost"; g.classList.remove("flash");
+    document.body.appendChild(g);
+    drag.ghost = g;
+    drag.card.classList.add("lifted");
+  }
+  drag.ghost.style.left = (e.clientX - 60) + "px";
+  drag.ghost.style.top = (e.clientY - 55) + "px";
+  drag.ghost.style.display = "none";
+  const hit = targetFrom(document.elementFromPoint(e.clientX, e.clientY));
+  drag.ghost.style.display = "";
+  clearOver();
+  if (hit) hit.el.classList.add("over");
+  drag.drop = hit ? hit.target : null;
+});
+document.addEventListener("pointerup", () => {
+  if (udrag) { unitDragEnd(); return; }
+  if (swipe) { swipeEnd(); return; }
+  if (!drag) return;
+  const d = drag; drag = null;
+  document.body.classList.remove("dragging");
+  clearOver();
+  if (d.ghost) d.ghost.remove();
+  if (d.card) d.card.classList.remove("lifted");
+  endTouchDrag(d);
+  if (d.active) {
+    if (d.drop) place(d.id, d.drop);
+    else if (d.touch) toast("Drop it on a slot, or on Unassigned.");
+  } else openSpool(d.id);
+});
+document.addEventListener("pointercancel", () => {
+  if (udrag) { unitDragEnd(true); return; }
+  if (swipe) { swipeCancel(); return; }
+  if (!drag) return;
+  if (drag.ghost) drag.ghost.remove();
+  if (drag.card) drag.card.classList.remove("lifted");
+  endTouchDrag(drag);
+  document.body.classList.remove("dragging"); clearOver(); drag = null;
+});
+function unitDragMove(e) {
+  if (!udrag.active) {
+    if (Math.hypot(e.clientX - udrag.x, e.clientY - udrag.y) < 7) return;
+    udrag.active = true;
+    document.body.classList.add("dragging");
+    const g = document.createElement("div");
+    g.className = "unit-ghost";
+    g.textContent = udrag.n + (udrag.n === 1 ? " spool" : " spools");
+    document.body.appendChild(g);
+    udrag.ghost = g;
+  }
+  udrag.ghost.style.left = (e.clientX + 14) + "px";
+  udrag.ghost.style.top = (e.clientY - 14) + "px";
+  udrag.ghost.style.display = "none";
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  udrag.ghost.style.display = "";
+  clearOver();
+  udrag.drop = null;
+  const zone = el && el.closest('[data-drop="spares"],[data-drop="reorder"]');
+  const over = el && el.closest("[data-unit]");
+  if (zone) { zone.classList.add("over"); udrag.drop = { zone: zone.dataset.drop }; }
+  else if (over && over.dataset.unit !== udrag.id) {
+    const box = over.closest(".unit");
+    if (box) box.classList.add("over");
+    udrag.drop = { unitId: over.dataset.unit };
+  }
+}
+function unitDragEnd(cancelled) {
+  const d = udrag; udrag = null;
+  document.body.classList.remove("dragging");
+  clearOver();
+  if (d.ghost) d.ghost.remove();
+  if (!d.active || cancelled) return;
+  lastUnitDrag = Date.now();
+  if (d.drop) moveAll(d.id, d.drop);
+  else toast("Drop it on another unit, or on Unassigned, to move everything across.");
+}
+
+/* ============================ swipe (touch) ============================ */
+let swipe = null;
+
+/* What each direction does depends on the roll — the label says so before you let go. */
+function swipeActions(s) {
+  const empty = inReorder(s.id);
+  return {
+    left: empty ? { label: "Delete", danger: true, run: () => {
+            detach(s.id);
+            state.spools = state.spools.filter(x => x.id !== s.id);
+            state.projects.forEach(p => p.spoolIds = p.spoolIds.map(x => x === s.id ? null : x));
+            toast(`${info(s).colorName} deleted.`);
+          } }
+        : { label: "Reorder", run: () => place(s.id, { zone: "reorder" }) },
+    right: s.sealed ? { label: "Open it", run: () => {
+             s.sealed = false; s.driedAt = today(); toast(`${info(s).colorName} opened.`);
+           } }
+         : empty ? { label: s.ordered ? "Not ordered" : "Ordered", run: () => { s.ordered = !s.ordered; } }
+         : { label: s.low ? "Not low" : "Low", run: () => { s.low = !s.low; } },
+  };
+}
+const blockScroll = e => e.preventDefault();
+function swipeStart(card, e) {
+  const s = spool(card.dataset.id); if (!s) return;
+  swipe = { card, s, x: e.clientX, y: e.clientY, dx: 0, active: false, acts: swipeActions(s) };
+  card.setPointerCapture(e.pointerId);
+  /* Hold still for a moment and it becomes a drag instead of a swipe. */
+  swipe.hold = setTimeout(startTouchDrag, 320);
+}
+function startTouchDrag() {
+  const w = swipe;
+  if (!w || w.active) return;
+  swipe = null;
+  w.card.classList.remove("swiping");
+  w.card.style.transform = "";
+  w.card.style.touchAction = "none";
+  document.addEventListener("touchmove", blockScroll, { passive: false });
+  if (navigator.vibrate) navigator.vibrate(12);
+  document.body.classList.add("dragging");
+  const g = w.card.cloneNode(true);
+  g.id = "ghost"; g.classList.remove("flash");
+  g.classList.add("holding");
+  document.body.appendChild(g);
+  w.card.classList.add("lifted");
+  drag = { id: w.s.id, card: w.card, ghost: g, active: true, touch: true, x: w.x, y: w.y };
+}
+function endTouchDrag(d) {
+  if (!d || !d.touch) return;
+  document.removeEventListener("touchmove", blockScroll, { passive: false });
+  if (d.card) d.card.style.touchAction = "";
+}
+function swipeMove(e) {
+  const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
+  if (swipe.hold && Math.hypot(dx, dy) > 6) { clearTimeout(swipe.hold); swipe.hold = null; }
+  if (!swipe.active) {
+    if (Math.abs(dy) > Math.abs(dx)) { swipeCancel(); return; }   /* let the page scroll */
+    if (Math.abs(dx) < 10) return;
+    swipe.active = true;
+    swipe.card.classList.add("swiping");
+    const r = swipe.card.getBoundingClientRect();
+    const hint = document.createElement("div");
+    hint.className = "swipe-hint";
+    hint.style.cssText = `left:${r.left + scrollX}px;top:${r.top + scrollY}px;width:${r.width}px;height:${r.height}px`;
+    document.body.appendChild(hint);
+    swipe.hint = hint;
+  }
+  swipe.dx = dx;
+  const a = dx < 0 ? swipe.acts.left : swipe.acts.right;
+  swipe.hint.textContent = a.label;
+  swipe.hint.classList.toggle("danger", !!a.danger);
+  swipe.hint.style.justifyContent = dx < 0 ? "flex-end" : "flex-start";
+  swipe.card.style.transform = `translateX(${dx}px)`;
+}
+function swipeEnd() {
+  const w = swipe;
+  const go = w.active && Math.abs(w.dx) > Math.max(56, w.card.offsetWidth * 0.4);
+  swipeCancel();
+  if (!w.active) { openSpool(w.s.id); return; }
+  if (!go) return;
+  (w.dx < 0 ? w.acts.left : w.acts.right).run();
+  mark(w.s.id); save(); render();
+}
+function swipeCancel() {
+  if (!swipe) return;
+  clearTimeout(swipe.hold);
+  if (swipe.hint) swipe.hint.remove();
+  swipe.card.classList.remove("swiping");
+  swipe.card.style.transform = "";
+  swipe = null;
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const card = e.target.closest && e.target.closest(".spool");
+  if (card) { e.preventDefault(); openSpool(card.dataset.id); }
+});
+
+/* ============================ modals ============================ */
+function modal(html, onMount) {
+  close();
+  const scrim = document.createElement("div");
+  scrim.className = "scrim"; scrim.id = "scrim";
+  scrim.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
+  scrim.addEventListener("pointerdown", e => { if (e.target === scrim) close(); });
+  document.body.appendChild(scrim);
+  document.body.style.overflow = "hidden";   /* don't scroll the page behind the sheet */
+  scrim.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", close));
+  if (onMount) onMount(scrim);
+  /* Autofocus summons the keyboard on a phone and shoves the sheet off screen. */
+  if (!matchMedia("(pointer:coarse)").matches) {
+    const f = scrim.querySelector("input,select,button");
+    if (f) f.focus();
+  }
+}
+function close() {
+  const s = document.getElementById("scrim");
+  if (s) s.remove();
+  document.body.style.overflow = "";
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+
+/* --- add or edit a roll of a known colour --- */
+function spoolForm(existing, swatchId) {
+  const wid = existing ? existing.swatchId : swatchId;
+  const w = swatch(wid) || GONE;
+  const s = existing || { low: false, sealed: true, ordered: false, driedAt: today() };
+  modal(`
+    <h2>${existing ? "Edit roll" : "Add a roll"}</h2>
+    <div style="display:flex;gap:11px;align-items:center;margin:-4px 0 14px">
+      <div class="disc" style="--c:${esc(w.hex)};--fill:1;width:46px;height:46px">
+        <div class="flange"></div><div class="wind"></div><div class="hub"></div>
+      </div>
+      <div style="min-width:0">
+        <div style="font-family:var(--display);text-transform:uppercase;letter-spacing:.05em;font-weight:600;font-size:16px">${esc(w.colorName)}</div>
+        <div style="font-size:12px;color:var(--ink-soft)">${esc(w.brand)} · ${esc(w.material)}
+          <button class="btn ghost tiny" id="f-swap" style="margin-left:6px">Change colour</button></div>
+      </div>
+    </div>
+    <div class="two">
+      <div class="field"><label>State</label>
+        <select id="f-state">
+          <option value="fine"${!s.low && !s.sealed ? " selected" : ""}>Open, fine</option>
+          <option value="low"${s.low && !s.sealed ? " selected" : ""}>Running low</option>
+          <option value="sealed"${s.sealed ? " selected" : ""}>Sealed, unopened</option>
+        </select>
+      </div>
+      ${existing ? "" : `<div class="field"><label>How many</label>
+        <input type="number" id="f-qty" min="1" max="24" value="1"></div>`}
+    </div>
+    ${dryingOn() ? `<div class="field" id="f-dried-wrap" style="display:${s.sealed ? "none" : "block"}">
+      <label>Last dried</label>
+      <input type="date" id="f-dried" value="${esc(s.driedAt || "")}">
+      <div style="font-size:11px;color:var(--ink-soft);margin-top:3px">
+        Leave blank if you don't know.</div>
+    </div>` : ""}
+    <div class="sheet-foot">
+      <span class="spacer"></span>
+      <button class="btn ghost" data-close>Cancel</button>
+      <button class="btn primary" id="f-save">${existing ? "Save" : "Add to unassigned"}</button>
+    </div>`, scrim => {
+    scrim.querySelector("#f-swap").onclick = () => { close(); swatchPicker(pick => spoolForm(existing, pick)); };
+    scrim.querySelector("#f-state").onchange = e => {
+      const wrap = scrim.querySelector("#f-dried-wrap");
+      if (wrap) wrap.style.display = e.target.value === "sealed" ? "none" : "block";
+    };
+    scrim.querySelector("#f-save").onclick = () => {
+      const st = scrim.querySelector("#f-state").value;
+      const fd = scrim.querySelector("#f-dried");
+      /* Sealed means unopened, so it has no drying history — it gets stamped when you open it. */
+      const dried = st === "sealed" ? null : dryingOn() && fd ? (fd.value || null) : s.driedAt || null;
+      const data = { swatchId: wid, low: st === "low", sealed: st === "sealed", driedAt: dried };
+      if (existing) { Object.assign(existing, data); mark(existing.id); close(); save(); render(); return; }
+      const qty = Math.max(1, Math.min(24, +scrim.querySelector("#f-qty").value || 1));
+      for (let i = 0; i < qty; i++) {
+        const ns = Object.assign({ id: uid("sp-"), ordered: false }, data);
+        state.spools.push(ns);
+        state.spares.push(ns.id);       /* unassigned until you put it somewhere */
+        mark(ns.id);
+      }
+      close(); save(); render();
+      toast(`${qty > 1 ? qty + " × " : ""}${w.colorName} added to Unassigned.`);
+    };
+  });
+}
+
+/* One tap from the Spools tab: pick a colour, get a sealed roll waiting to be put away. */
+function addSealedRoll(swatchId) {
+  const w = swatch(swatchId) || GONE;
+  const ns = { id: uid("sp-"), swatchId, low: false, sealed: true, ordered: false, driedAt: null };
+  state.spools.push(ns);
+  state.spares.push(ns.id);
+  mark(ns.id);
+  save(); render();
+  toast(`Sealed ${w.colorName} added to Unassigned.`);
+  const row = document.getElementById("spares-row");
+  if (row) row.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth" });
+}
+
+/* --- pick a colour from the swatch book --- */
+function swatchPicker(onPick) {
+  const list = sortedSwatches();
+  modal(`<h2>Which colour?</h2>
+    <div class="swatches" style="max-height:52vh;overflow:auto;margin-bottom:12px">
+      ${list.map(sw => `<button class="swatch" data-pick="${sw.id}" style="background:${esc(sw.hex)};color:${readable(sw.hex)};padding:11px 12px">
+        <span class="sw-name" style="font-size:14px">${esc(sw.colorName)}</span>
+        <span class="sw-meta">${esc(sw.brand)} · ${esc(sw.material)}</span>
+      </button>`).join("")}
+    </div>
+    <div class="sheet-foot">
+      <button class="btn" id="p-new">New colour</button>
+      <span class="spacer"></span>
+      <button class="btn ghost" data-close>Cancel</button>
+    </div>`, scrim => {
+    scrim.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => { close(); onPick(b.dataset.pick); });
+    scrim.querySelector("#p-new").onclick = () => { close(); swatchForm(null, onPick); };
+  });
+}
+
+/* --- spool detail: move without dragging, flag low, mark empty --- */
+function openSpool(id) {
+  const s = spool(id); if (!s) return;
+  const here = locationOf(id);
+  const opts = state.units.map(u => `<optgroup label="${esc(u.name)}">${
+    u.slots.map((occ, i) => {
+      if (here && here.unitId === u.id && here.slot === i) return "";
+      const who = occ ? spool(occ) : null;
+      return `<option value="${u.id}|${i}">Slot ${i + 1} — ${who ? "swap with " + esc(who.colorName) : "free"}</option>`;
+    }).join("")}</optgroup>`).join("");
+  const ZONE = { reorder: "In the reorder queue", spares: "Unassigned — not in a unit yet" };
+  const pile = here && here.zone ? sameAs(s, here.zone === "spares" ? state.spares : state.reorder) : 0;
+  const where = (here ? (here.zone ? ZONE[here.zone] : "In " + esc(unit(here.unitId).name) + ", slot " + (here.slot + 1)) : "Not placed")
+    + (pile > 1 ? ` · ${pile} identical rolls here` : "");
+  const w = info(s);
+  const d = dryState(s);
+  const dryLine = s.sealed ? "Sealed, so it counts as dry until you open it"
+    : d.drying ? "In the dryer now"
+    : !d.weeks ? "No drying countdown where this lives"
+    : d.days === null ? "Never dried, or not recorded"
+    : d.stale ? `Dried ${esc(fmtDate(s.driedAt))}, ${dur(d.days)} ago — past its ${d.weeks}-week window`
+    : `Dried ${esc(fmtDate(s.driedAt))} · good for about ${dur(d.window - d.days)} more here`;
+
+  modal(`
+    <h2>${esc(w.brand)} ${esc(w.colorName)}</h2>
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">
+      <div class="disc" style="--c:${esc(w.hex)};--fill:${fill(s)};width:58px;height:58px">
+        <div class="flange"></div><div class="wind"></div><div class="hub"></div>
+      </div>
+      <div>
+        <div><span class="chip">${esc(w.material)}</span>
+          <span class="mono" style="font-size:12px;margin-left:5px">${esc(w.hex.toUpperCase())}</span>
+          <button class="btn ghost tiny" data-swatch="${w.id}" style="margin-left:5px">Swatch</button></div>
+        <div style="font-size:12px;color:var(--ink-soft);margin-top:4px">${where}</div>
+        <div style="font-size:12px;margin-top:3px;color:${d.stale ? "var(--damp)" : "var(--ink-soft)"};display:flex;align-items:center;gap:5px">
+          ${dryingOn() && !s.sealed && d.level !== null ? droplet(d.level, dropTitle(s, d), d.level >= 3 ? "warn" : "") : ""}${dryLine}</div>
+      </div>
+    </div>
+    <div class="field"><label>Move to</label>
+      <select id="d-move"><option value="">Pick a slot…</option>${opts}${here && here.zone === "spares" ? "" : `<option value="spares">Unassigned</option>`}${here && here.zone === "reorder" ? "" : `<option value="reorder">Reorder queue</option>`}</select>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn danger" id="d-del">Delete</button>
+      <span class="spacer"></span>
+      <button class="btn" id="d-edit">Edit</button>
+      ${s.sealed ? `<button class="btn ghost" id="d-open">Open it</button>`
+        : inReorder(s.id) ? `<button class="btn ghost" id="d-ordered">${s.ordered ? "Not ordered yet" : "Mark as ordered"}</button>`
+        : `<button class="btn ghost" id="d-low">${s.low ? "Not low anymore" : "Mark running low"}</button>
+           ${dryingOn() ? `<button class="btn ghost" id="d-dried">Dried today</button>` : ""}`}
+      ${s.sealed ? "" : `<button class="btn ghost" id="d-spare">Add a sealed spare</button>`}
+      <button class="btn primary" data-close>Done</button>
+    </div>`, scrim => {
+    scrim.querySelector("#d-move").onchange = e => {
+      const v = e.target.value; if (!v) return;
+      close();
+      if (v === "reorder" || v === "spares") place(id, { zone: v });
+      else { const [u, i] = v.split("|"); place(id, { unitId: u, slot: +i }); }
+    };
+    const on = (sel, fn) => { const b = scrim.querySelector(sel); if (b) b.onclick = fn; };
+    on("#d-edit", () => spoolForm(s));
+    on("#d-low", () => { s.low = !s.low; mark(s.id); close(); save(); render(); });
+    on("#d-dried", () => {
+      s.driedAt = today(); mark(s.id); close(); save(); render();
+      toast(`${w.colorName} marked dry.`);
+    });
+    on("#d-ordered", () => { s.ordered = !s.ordered; mark(s.id); close(); save(); render(); });
+    on("#d-open", () => {
+      s.sealed = false; s.driedAt = today(); mark(s.id); close(); save(); render();
+      toast(`${w.colorName} opened — dry as of today.`);
+    });
+    on("#d-del", () => {
+      detach(s.id);
+      state.spools = state.spools.filter(x => x.id !== s.id);
+      state.projects.forEach(p => p.spoolIds = p.spoolIds.map(x => x === s.id ? null : x));
+      close(); save(); render();
+      toast(`${w.colorName} deleted${pile > 1 ? ` · ${pile - 1} left` : ""}.`);
+    });
+    on("#d-spare", () => {
+      const spare = { id: uid("sp-"), swatchId: s.swatchId, low: false, sealed: true, ordered: false, driedAt: null };
+      state.spools.push(spare);
+      state.spares.push(spare.id);
+      mark(spare.id); close(); save(); render();
+      toast(`Sealed ${w.colorName} waiting in Unassigned.`);
+    });
+  });
+}
+
+/* ============================ .3mf files ============================ */
+/* Bambu Studio writes a sliced .3mf as a plain zip. Two entries matter:
+   Metadata/slice_info.config lists every filament with its type, colour and
+   grams, and Metadata/plate_*.png is the plate preview. No library needed —
+   the central directory is easy to walk and DecompressionStream does deflate. */
+
+async function inflateRaw(bytes) {
+  const s = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+async function unzip(buf, want) {
+  const u8 = new Uint8Array(buf), dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= Math.max(0, u8.length - 66000); i--)
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error("not a zip");
+  const n = dv.getUint16(eocd + 10, true);
+  let off = dv.getUint32(eocd + 16, true);
+  const out = {};
+  for (let i = 0; i < n; i++) {
+    if (dv.getUint32(off, true) !== 0x02014b50) break;
+    const method = dv.getUint16(off + 10, true), csize = dv.getUint32(off + 20, true);
+    const nl = dv.getUint16(off + 28, true), el = dv.getUint16(off + 30, true), cl = dv.getUint16(off + 32, true);
+    const lho = dv.getUint32(off + 42, true);
+    const name = new TextDecoder().decode(u8.subarray(off + 46, off + 46 + nl));
+    off += 46 + nl + el + cl;
+    if (!want(name) || csize === 0xFFFFFFFF) continue;
+    const lnl = dv.getUint16(lho + 26, true), lel = dv.getUint16(lho + 28, true);
+    const start = lho + 30 + lnl + lel;
+    const data = u8.subarray(start, start + csize);
+    out[name] = method === 0 ? data : await inflateRaw(data);
+  }
+  return out;
+}
+const attr = (tag, k) => (tag.match(new RegExp(k + '="([^"]*)"')) || [])[1] || "";
+
+/* Shrink the plate preview so a long project list still fits in storage. */
+function shrink(bytes) {
+  return new Promise(res => {
+    const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      const k = Math.min(1, 124 / Math.max(img.width, img.height));
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      const g = c.getContext("2d");
+      g.fillStyle = "#F2F1ED"; g.fillRect(0, 0, c.width, c.height);
+      g.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      res(c.toDataURL("image/jpeg", 0.7));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); res(null); };
+    img.src = url;
+  });
+}
+
+async function read3mf(file) {
+  const rec = newProject(file, "3mf");
+  try {
+    const files = await unzip(await file.arrayBuffer(),
+      n => /slice_info\.config$/.test(n) || /plate_\d+(_small)?\.png$/.test(n));
+    const infoKey = Object.keys(files).find(k => /slice_info\.config$/.test(k));
+    if (infoKey) {
+      const xml = new TextDecoder().decode(files[infoKey]);
+      rec.uses = [...xml.matchAll(/<filament\b[^>]*>/g)].map(m => {
+        const type = attr(m[0], "type") || "?";
+        const color = (attr(m[0], "color") || "#999999").slice(0, 7);
+        return { type, color, grams: Math.round((+attr(m[0], "used_g") || 0) * 10) / 10,
+                 swatchId: matchSwatch(type, color) };
+      });
+      rec.seconds = [...xml.matchAll(/key="prediction" value="(\d+)"/g)].reduce((n, m) => n + +m[1], 0);
+    }
+    const thumbKey = Object.keys(files).find(k => /_small\.png$/.test(k)) || Object.keys(files).find(k => /\.png$/.test(k));
+    if (thumbKey) rec.thumb = await shrink(files[thumbKey]);
+  } catch (e) { /* not a sliced file — the record still stands, colours go in by hand */ }
+  return rec;
+}
+
+/* An STL carries no colour and no thumbnail, so we draw one from the geometry. */
+async function readStl(file) {
+  const rec = newProject(file, "stl");
+  try {
+    const buf = await file.arrayBuffer();
+    const tris = readStlTriangles(buf);
+    if (tris) rec.thumb = renderMesh(tris);
+  } catch (e) { /* unreadable geometry is fine — the name and colours still work */ }
+  return rec;
+}
+function readStlTriangles(buf) {
+  const u8 = new Uint8Array(buf), dv = new DataView(buf);
+  const head = new TextDecoder().decode(u8.subarray(0, 80)).trim().toLowerCase();
+  if (buf.byteLength > 84) {
+    const n = dv.getUint32(80, true);
+    if (84 + n * 50 === buf.byteLength && n) {
+      const step = Math.max(1, Math.ceil(n / 40000));   /* sample big meshes; it's a thumbnail */
+      const out = [];
+      for (let i = 0; i < n; i += step) {
+        const o = 84 + i * 50 + 12;
+        out.push([
+          [dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true)],
+          [dv.getFloat32(o + 12, true), dv.getFloat32(o + 16, true), dv.getFloat32(o + 20, true)],
+          [dv.getFloat32(o + 24, true), dv.getFloat32(o + 28, true), dv.getFloat32(o + 32, true)],
+        ]);
+      }
+      return out;
+    }
+  }
+  if (!head.startsWith("solid")) return null;
+  const text = new TextDecoder().decode(u8.subarray(0, Math.min(u8.length, 24e6)));
+  const nums = [...text.matchAll(/vertex\s+(-?[\d.eE+-]+)\s+(-?[\d.eE+-]+)\s+(-?[\d.eE+-]+)/g)];
+  const out = [];
+  for (let i = 0; i + 2 < nums.length; i += 3)
+    out.push([0, 1, 2].map(k => nums[i + k].slice(1, 4).map(Number)));
+  return out.length ? out : null;
+}
+
+/* Flat-shaded isometric render, painter's algorithm. No library, no WebGL. */
+function renderMesh(tris) {
+  const S = 132, c = document.createElement("canvas");
+  c.width = c.height = S;
+  const g = c.getContext("2d");   /* transparent outside the model, so it can be tinted later */
+
+  const rx = -Math.PI / 3, rz = Math.PI / 6;
+  const cx = Math.cos(rx), sx = Math.sin(rx), cz = Math.cos(rz), sz = Math.sin(rz);
+  const proj = ([x, y, z]) => {
+    const X = x * cz - y * sz, Y = x * sz + y * cz;
+    return [X, Y * cx - z * sx, Y * sx + z * cx];
+  };
+  const pts = tris.map(t => t.map(proj));
+  let m = [Infinity, Infinity, -Infinity, -Infinity];
+  pts.forEach(t => t.forEach(([x, y]) => {
+    m[0] = Math.min(m[0], x); m[1] = Math.min(m[1], y);
+    m[2] = Math.max(m[2], x); m[3] = Math.max(m[3], y);
+  }));
+  const k = 0.86 * S / Math.max(m[2] - m[0], m[3] - m[1], 1e-6);
+  const ox = (S - (m[2] - m[0]) * k) / 2 - m[0] * k;
+  const oy = (S - (m[3] - m[1]) * k) / 2 - m[1] * k;
+
+  const order = pts.map((t, i) => [i, (t[0][2] + t[1][2] + t[2][2]) / 3]).sort((a, b) => a[1] - b[1]);
+  for (const [i] of order) {
+    const t = pts[i];
+    const ux = t[1][0] - t[0][0], uy = t[1][1] - t[0][1], uz = t[1][2] - t[0][2];
+    const vx = t[2][0] - t[0][0], vy = t[2][1] - t[0][1], vz = t[2][2] - t[0][2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const len = Math.hypot(nx, ny, nz) || 1;
+    const lit = Math.max(0, (0.35 * nx + 0.25 * ny + 0.9 * nz) / len);
+    /* Light greys only: this gets multiplied by the filament colour at display time. */
+    const v = Math.round(96 + lit * 159);
+    g.fillStyle = `rgb(${v},${v},${v})`;
+    g.beginPath();
+    g.moveTo(t[0][0] * k + ox, S - (t[0][1] * k + oy));
+    g.lineTo(t[1][0] * k + ox, S - (t[1][1] * k + oy));
+    g.lineTo(t[2][0] * k + ox, S - (t[2][1] * k + oy));
+    g.closePath(); g.fill();
+  }
+  return c.toDataURL("image/png");
+}
+
+function newProject(file, kind) {
+  return { id: uid("pj-"), kind, name: file.name, title: file.name.replace(/\.(3mf|stl)$/i, ""),
+           note: "", folder: null, added: today(), uses: [], thumb: null, seconds: 0 };
+}
+
+/* Guess which colour in the library a filament entry came off. */
+const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) || 0);
+function matchSwatch(type, color) {
+  const want = rgb(color);
+  let best = null, score = Infinity;
+  state.swatches.forEach(w => {
+    const got = rgb(w.hex);
+    const dc = Math.hypot(want[0] - got[0], want[1] - got[1], want[2] - got[2]);
+    const a = family(w.material), b = family(type);
+    const s = dc + (a === b ? 0 : 240);
+    if (s < score) { score = s; best = w.id; }
+  });
+  return score < 380 ? best : null;
+}
+
+/* ---------- folders ---------- */
+const folder = id => state.folders.find(f => f.id === id);
+const childFolders = id => state.folders.filter(f => f.parent === id);
+const filesIn = id => state.projects.filter(p => p.folder === id);
+function countIn(id) {
+  return filesIn(id).length + childFolders(id).reduce((n, f) => n + countIn(f.id), 0);
+}
+/* You can't file a folder inside itself. */
+function isInside(id, maybeParent) {
+  let f = folder(maybeParent);
+  while (f) { if (f.id === id) return true; f = folder(f.parent); }
+  return false;
+}
+function folderOptions(skipId, sel) {
+  const out = [`<option value=""${sel ? "" : " selected"}>Top level</option>`];
+  const walk = (parent, depth) => childFolders(parent).forEach(f => {
+    if (!(skipId && (f.id === skipId || isInside(skipId, f.id))))
+      out.push(`<option value="${f.id}"${f.id === sel ? " selected" : ""}>${"— ".repeat(depth)}${esc(f.name)}</option>`);
+    walk(f.id, depth + 1);
+  });
+  walk(null, 0);
+  return out.join("");
+}
+
+/* Geometry has no colour of its own, so it wears the first one you assigned. */
+function projectTint(p) {
+  const u = (p.uses || []).find(x => x.swatchId && swatch(x.swatchId));
+  return u ? swatch(u.swatchId).hex : "#B4B1AA";
+}
+
+function renderProjects() {
+  const opts = sel => sortedSwatches().map(w =>
+    `<option value="${w.id}"${w.id === sel ? " selected" : ""}>${esc(w.brand)} ${esc(w.colorName)} · ${esc(w.material)}</option>`).join("");
+
+  const card = (p, depth) => {
+    const g = p.uses.reduce((n, u) => n + (u.grams || 0), 0);
+    const hrs = p.seconds ? Math.floor(p.seconds / 3600) + "h " + Math.round(p.seconds % 3600 / 60) + "m · " : "";
+    return `<div class="proj" draggable="true" data-drag-proj="${p.id}" style="margin-left:${depth * 14}px">
+      ${p.thumb && p.kind === "stl"
+        ? `<div class="thumb mesh" style="--img:url(${p.thumb});--tint:${esc(projectTint(p))}"></div>`
+        : `<div class="thumb" ${p.thumb ? `style="background-image:url(${p.thumb})"` : ""}>${p.thumb ? "" : esc((p.kind || "3mf").toUpperCase())}</div>`}
+      <div class="body">
+        <div class="t">${esc(p.title)}</div>
+        <div class="fn">${esc(p.name)}${p.note ? " · " + esc(p.note) : ""}</div>
+        <div class="d">${hrs}${g ? g.toFixed(0) + " g · " : ""}added ${esc(fmtDate(p.added))}</div>
+        ${p.uses.map((u, i) => {
+          const w = swatch(u.swatchId);
+          return `<div class="fil">
+            <span class="dot" style="background:${esc(w ? w.hex : u.color || "#B9B7B0")}"></span>
+            <select data-proj="${p.id}" data-use="${i}">
+              <option value=""${w ? "" : " selected"}>${u.type ? `Unmatched — ${esc(u.type)} ${esc(u.color)}` : "Pick a colour"}</option>
+              ${opts(u.swatchId)}
+            </select>
+            <span class="g">${u.grams ? u.grams + " g" : ""}</span>
+            <button class="btn ghost tiny" data-usedel="${p.id}|${i}" aria-label="Remove colour">×</button>
+          </div>`;
+        }).join("")}
+        <div class="acts">
+          <button class="btn ghost tiny" data-useadd="${p.id}">+ Colour</button>
+          <button class="btn ghost tiny" data-projmenu="${p.id}">Rename / move</button>
+        </div>
+      </div>
+    </div>`;
+  };
+
+  const tree = (parent, depth) =>
+    childFolders(parent).map(f => {
+      const n = countIn(f.id);
+      const inner = f.open
+        ? (n ? tree(f.id, depth + 1)
+             : `<div class="fempty" style="margin-left:${(depth + 1) * 14}px">Empty — move a file in here.</div>`)
+        : "";
+      return `<div class="frow" data-folder="${f.id}" style="margin-left:${depth * 14}px">
+          <button class="caret" data-toggle="${f.id}" aria-label="${f.open ? "Collapse" : "Expand"}">${f.open ? "▾" : "▸"}</button>
+          <button class="fname" data-fmenu="${f.id}">${esc(f.name)}</button>
+          <span class="fcount">${n}</span>
+        </div>${inner}`;
+    }).join("") + filesIn(parent).map(p => card(p, depth)).join("");
+
+  document.getElementById("projects").innerHTML =
+    state.folders.length || state.projects.length ? tree(null, 0) : "";
+  document.getElementById("log-meta").textContent =
+    state.projects.length ? state.projects.length + " files" : "";
+  document.getElementById("tab-count").textContent = state.projects.length || "";
+}
+
+/* ---------- folder and project menus ---------- */
+function folderMenu(id) {
+  const f = folder(id); if (!f) return;
+  modal(`<h2>${esc(f.name)}</h2>
+    <div class="field"><label>Name</label><input type="text" id="fm-name" value="${esc(f.name)}"></div>
+    <div class="field"><label>Inside</label><select id="fm-parent">${folderOptions(f.id, f.parent)}</select></div>
+    <div class="sheet-foot">
+      <button class="btn danger" id="fm-del">Delete</button>
+      <span class="spacer"></span>
+      <button class="btn ghost" id="fm-sub">New folder inside</button>
+      <button class="btn primary" id="fm-save">Save</button>
+    </div>`, scrim => {
+    scrim.querySelector("#fm-save").onclick = () => {
+      f.name = scrim.querySelector("#fm-name").value.trim() || f.name;
+      f.parent = scrim.querySelector("#fm-parent").value || null;
+      close(); save(); render();
+    };
+    scrim.querySelector("#fm-sub").onclick = () => { close(); newFolder(f.id); };
+    scrim.querySelector("#fm-del").onclick = () => {
+      const moved = countIn(f.id);
+      childFolders(f.id).forEach(c => c.parent = f.parent);
+      filesIn(f.id).forEach(p => p.folder = f.parent);
+      state.folders = state.folders.filter(x => x.id !== f.id);
+      close(); save(); render();
+      toast(moved ? `${f.name} deleted · ${moved} item${moved > 1 ? "s" : ""} moved up` : `${f.name} deleted.`);
+    };
+  });
+}
+function projectMenu(id) {
+  const p = state.projects.find(x => x.id === id); if (!p) return;
+  modal(`<h2>${esc(p.title)}</h2>
+    <div class="field"><label>Name</label><input type="text" id="pm-name" value="${esc(p.title)}">
+      <div style="font-size:11px;color:var(--ink-soft);margin-top:3px">File on disk: ${esc(p.name)}</div>
+    </div>
+    <div class="field"><label>Folder</label><select id="pm-folder">${folderOptions(null, p.folder)}</select></div>
+    <div class="field"><label>Where it lives</label>
+      <input type="text" id="pm-note" value="${esc(p.note || "")}" placeholder="NAS/3dprint/keychains">
+      <div style="font-size:11px;color:var(--ink-soft);margin-top:3px">
+        Your note — browsers never reveal the real path of a file you pick.</div>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn danger" id="pm-del">Remove</button>
+      <span class="spacer"></span>
+      <button class="btn primary" id="pm-save">Save</button>
+    </div>`, scrim => {
+    scrim.querySelector("#pm-save").onclick = () => {
+      p.title = scrim.querySelector("#pm-name").value.trim() || p.name;
+      p.folder = scrim.querySelector("#pm-folder").value || null;
+      p.note = scrim.querySelector("#pm-note").value.trim();
+      close(); save(); render();
+    };
+    scrim.querySelector("#pm-del").onclick = () => {
+      state.projects = state.projects.filter(x => x.id !== p.id);
+      close(); save(); render(); toast(`${p.title} removed.`);
+    };
+  });
+}
+function newFolder(parent) {
+  modal(`<h2>New folder</h2>
+    <div class="field"><label>Name</label><input type="text" id="nf-name" placeholder="Keychains"></div>
+    <div class="field"><label>Inside</label><select id="nf-parent">${folderOptions(null, parent)}</select></div>
+    <div class="sheet-foot"><span class="spacer"></span>
+      <button class="btn ghost" data-close>Cancel</button>
+      <button class="btn primary" id="nf-save">Create</button></div>`, scrim => {
+    const go = () => {
+      const name = scrim.querySelector("#nf-name").value.trim();
+      if (!name) return;
+      state.folders.push({ id: uid("fd-"), name, parent: scrim.querySelector("#nf-parent").value || null, open: true });
+      close(); save(); render(); toast(`${name} created.`);
+    };
+    scrim.querySelector("#nf-save").onclick = go;
+    scrim.querySelector("#nf-name").onkeydown = e => { if (e.key === "Enter") go(); };
+  });
+}
+
+/* The browser can't launch Bambu Studio. It can hand the file back, and the
+   .3mf association does the rest — so long as we still have the file. */
+/* Pick files, read what they can tell us, keep the record — never the bytes. */
+async function intake(list, into = null) {
+  const files = [...list].filter(f => /\.(3mf|stl)$/i.test(f.name));
+  if (!files.length) { toast("Pick .3mf or .stl files."); return; }
+  let matched = 0;
+  for (const f of files) {
+    const rec = /\.3mf$/i.test(f.name) ? await read3mf(f) : await readStl(f);
+    rec.folder = into;
+    matched += rec.uses.filter(u => u.swatchId).length;
+    state.projects.unshift(rec);
+  }
+  const dest = folder(into);
+  if (dest) dest.open = true;
+  setTab("projects");
+  save(); render();
+  toast(files.length > 1 ? `${files.length} files added.`
+    : matched ? `${files[0].name} — ${matched} colour${matched > 1 ? "s" : ""} matched.`
+    : `${files[0].name} added.`);
+}
+
+document.getElementById("dropzone").onclick = () => document.getElementById("fileinput").click();
+document.getElementById("fileinput").onchange = e => { intake(e.target.files); e.target.value = ""; };
+
+document.addEventListener("change", e => {
+  const sel = e.target.closest("[data-use]");
+  if (!sel) return;
+  const p = state.projects.find(x => x.id === sel.dataset.proj);
+  if (!p) return;
+  p.uses[+sel.dataset.use].swatchId = sel.value || null;
+  save(); render();
+});
+
+/* ============================ reminders ============================ */
+const canNotify = () => typeof Notification !== "undefined";
+
+async function askNotify(on) {
+  if (!on) { state.notify = false; save(); render(); return; }
+  if (!canNotify()) { toast("This browser doesn't offer notifications here."); render(); return; }
+  let perm = Notification.permission;
+  if (perm === "default") {
+    try { perm = await Notification.requestPermission(); } catch (e) { perm = "denied"; }
+  }
+  if (perm === "granted") { state.notify = true; toast("Reminders on."); notifyCheck(true); }
+  else {
+    state.notify = false;
+    toast("Your browser is blocking notifications for this site — allow them in its site settings.");
+  }
+  save(); render();
+}
+
+/* Once a day at most, and only for what's actually overdue. */
+function notifyCheck(force) {
+  if (!state.notify || !dryingOn()) return;
+  if (!canNotify() || Notification.permission !== "granted") return;
+  const due = needsDrying();
+  if (!due.length) return;
+  const stamp = today();
+  if (!force && state.notifiedOn === stamp) return;
+  state.notifiedOn = stamp;
+  save();
+  const names = due.slice(0, 3).map(s => info(s).colorName).join(", ");
+  try {
+    new Notification(`${due.length} spool${due.length > 1 ? "s" : ""} need drying`, {
+      body: names + (due.length > 3 ? ` and ${due.length - 3} more` : ""),
+      tag: "filament-drying",
+    });
+  } catch (e) { /* some browsers only allow this from a service worker */ }
+}
+setInterval(notifyCheck, 36e5);
+
+/* Installed on Android, Chrome will run the worker on a schedule of its
+   choosing; minInterval is a hint, not a promise. Everywhere else this is a
+   no-op and reminders simply happen while the page is open. */
+let bgReady = false;
+async function setupWorker() {
+  if (!("serviceWorker" in navigator) || location.protocol === "blob:") return;
+  try {
+    const reg = await navigator.serviceWorker.register("sw.js");
+    if (!("periodicSync" in reg)) return;
+    const st = await navigator.permissions.query({ name: "periodic-background-sync" });
+    if (st.state !== "granted") return;
+    await reg.periodicSync.register("dry-check", { minInterval: 12 * 60 * 60 * 1000 });
+    bgReady = true;
+    const el = document.getElementById("notify-bg");
+    if (el) el.textContent = "background checks active";
+  } catch (e) { /* not installed, or unsupported — the in-page check still runs */ }
+}
+setupWorker();
+
+/* ============================ setup ============================ */
+const KIND_LABEL = { printer: "Printer", ams: "AMS / MMU", dryer: "Dryer", box: "Airtight box", shelf: "Open shelf" };
+const DEFAULT_SLOTS = { printer: 1, ams: 4, dryer: 4, box: 4, shelf: 6 };
+
+const GROUPS = [
+  { kind: "printer", title: "Printers",       add: "a printer" },
+  { kind: "ams",     title: "AMS / MMU",      add: "an AMS" },
+  { kind: "dryer",   title: "Dryers",         add: "a dryer" },
+  { kind: "box",     title: "Airtight boxes", add: "an airtight box" },
+  { kind: "shelf",   title: "Open shelves",   add: "an open shelf" },
+];
+
+function renderSetup() {
+  const row = u => {
+    const held = u.slots.filter(Boolean).length;
+    return `<div class="srow">
+      ${isMachine(u) ? `<span class="led"></span>` : u.kind === "dryer" ? `<span class="led heat"></span>` : ""}
+      <input type="text" value="${esc(u.name)}" data-uname="${u.id}" aria-label="Name">
+      <select data-ukind="${u.id}" aria-label="Type">
+        ${Object.keys(KIND_LABEL).map(k => `<option value="${k}"${k === u.kind ? " selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}
+      </select>
+      <input type="number" min="1" max="12" value="${u.slots.length}" data-uslots="${u.id}" aria-label="Slots">
+      <span class="mini">slots</span>
+      <span class="mini" style="margin-left:4px">${u.kind === "dryer" ? "no countdown"
+        : state.dryWeeks[u.kind] ? state.dryWeeks[u.kind] + "w dry" : "never dries out"}</span>
+      <span class="held">${held ? held + " loaded" : "empty"}</span>
+      <button class="btn ghost tiny" data-udel="${u.id}">Remove</button>
+    </div>`;
+  };
+
+  document.getElementById("setup-list").innerHTML = GROUPS.map(g => {
+    const us = state.units.filter(u => u.kind === g.kind);
+    /* Empty groups keep their bar, so adding your first dryer is one obvious tap. */
+    return `<div class="ugroup${us.length ? "" : " empty"}">
+      <div class="ubar">
+        <span>${esc(g.title)}</span>
+        <span class="n">${us.length ? us.length : "none yet"}</span>
+        <button class="add" data-addunit="${g.kind}">+ Add ${us.length ? "" : esc(g.add)}</button>
+      </div>
+      ${us.length ? `<div class="ubody">${us.map(row).join("")}</div>` : ""}
+    </div>`;
+  }).join("");
+
+  const box = document.getElementById("notify-toggle");
+  const perm = canNotify() ? Notification.permission : "unsupported";
+  box.checked = !!state.notify && perm === "granted";
+  box.disabled = perm === "denied" || perm === "unsupported";
+  document.getElementById("notify-state").textContent =
+    perm === "unsupported" ? "not available here"
+    : perm === "denied" ? "blocked in browser settings"
+    : state.notify && perm === "granted" ? "on"
+    : "off";
+
+  const track = state.dryTracking !== false;
+  document.getElementById("drytrack").checked = track;
+  document.getElementById("dry-settings").style.opacity = track ? "" : ".45";
+  document.getElementById("dry-settings").innerHTML = Object.keys(KIND_LABEL).map(k => {
+    const n = state.units.filter(u => u.kind === k).length;
+    return `<div class="srow">
+      <span class="kname">${esc(KIND_LABEL[k])}</span>
+      ${k === "dryer"
+        ? `<span class="mini" style="margin-left:0">no countdown — nothing goes damp in here</span>`
+        : `<input type="number" min="1" max="520" value="${state.dryWeeks[k] || ""}" data-kdry="${k}"
+             ${state.dryWeeks[k] && track ? "" : "disabled"} aria-label="${esc(KIND_LABEL[k])} weeks dry">
+           <span class="mini">weeks</span>
+           <label class="never"><input type="checkbox" data-knever="${k}"${state.dryWeeks[k] ? "" : " checked"}${track ? "" : " disabled"}> never</label>`}
+      <span class="held">${n ? n + (n === 1 ? " unit" : " units") : "none yet"}</span>
+    </div>`;
+  }).join("");
+
+  document.getElementById("setup-meta").textContent =
+    state.units.length + " units · " + state.units.reduce((n, u) => n + u.slots.length, 0) + " slots";
+}
+
+function addUnit(kind) {
+  const n = state.units.filter(u => u.kind === kind).length + 1;
+  const name = { printer: "Printer " + n, ams: "AMS " + n, dryer: "Dryer " + n,
+                 box: "Box " + n, shelf: "Shelf " + n }[kind];
+  state.units.push({ id: uid(kind.slice(0, 2) + "-"), kind, name,
+                     slots: Array(DEFAULT_SLOTS[kind]).fill(null) });
+  save(); render();
+  toast(`${name} added — rename it to whatever you call it.`);
+}
+
+document.addEventListener("input", e => {
+  const nm = e.target.closest("[data-uname]");
+  if (!nm) return;
+  const u = unit(nm.dataset.uname);
+  if (u) { u.name = nm.value.trim() || u.name; save(); }
+});
+document.addEventListener("change", e => {
+  const k = e.target.closest("[data-ukind]");
+  if (k) {
+    const u = unit(k.dataset.ukind);
+    if (u) { u.kind = k.value; save(); render(); }
+    return;
+  }
+  if (e.target.id === "notify-toggle") { askNotify(e.target.checked); return; }
+  if (e.target.id === "drytrack") {
+    state.dryTracking = e.target.checked;
+    save(); render();
+    toast(e.target.checked ? "Drying tracked again." : "Drying switched off — no dates, no reminders.");
+    return;
+  }
+  const nev = e.target.closest("[data-knever]");
+  if (nev) {
+    const k = nev.dataset.knever;
+    state.dryWeeks[k] = nev.checked ? null : DEFAULT_DRY[k] || 4;
+    save(); render();
+    return;
+  }
+  const dry = e.target.closest("[data-kdry]");
+  if (dry) {
+    state.dryWeeks[dry.dataset.kdry] = Math.max(0, Math.min(520, +dry.value || 0)) || null;
+    save(); render();
+    return;
+  }
+  const s = e.target.closest("[data-uslots]");
+  if (s) {
+    const u = unit(s.dataset.uslots);
+    if (!u) return;
+    const want = Math.max(1, Math.min(12, +s.value || 1));
+    const held = u.slots.filter(Boolean).length;
+    if (want < held) {
+      toast(`${u.name} still has ${held} spools in it — unload some first.`);
+      render(); return;
+    }
+    /* Keep the loaded slots, drop the empty tail. */
+    const kept = u.slots.filter(Boolean);
+    u.slots = Array.from({ length: want }, (_, i) => kept[i] || null);
+    save(); render();
+  }
+});
+document.addEventListener("click", e => {
+  const a = e.target.closest("[data-addunit]");
+  if (a) { addUnit(a.dataset.addunit); return; }
+  const d = e.target.closest("[data-udel]");
+  if (d) {
+    const u = unit(d.dataset.udel);
+    if (!u) return;
+    if (u.slots.some(Boolean)) { toast(`Empty ${u.name} first, then remove it.`); return; }
+    state.units = state.units.filter(x => x.id !== u.id);
+    save(); render(); toast(`${u.name} removed.`);
+  }
+});
+
+/* ============================ swatches ============================ */
+/* A record of colours, not of plastic. Spools feed it automatically and it
+   keeps the entry after the last roll is gone — that's the whole point. */
+
+function hsl(hex) {
+  const [r, g, b] = rgb(hex).map(v => v / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let hh = 0;
+  if (d) hh = 60 * (mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4);
+  return { h: hh, c: d, l: (mx + mn) / 2 };   /* chroma, not saturation: an off-white is neutral, not a pale yellow */
+}
+const readable = hex => {
+  const [r, g, b] = rgb(hex);
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.56 ? "#16181D" : "#F2F1ED";
+};
+/* Rainbow first, then the neutrals as their own band from white down to black. */
+function sortedSwatches() {
+  return [...state.swatches].sort((a, b) => {
+    const A = hsl(a.hex), B = hsl(b.hex);
+    const na = A.c < 0.1, nb = B.c < 0.1;
+    if (na !== nb) return na ? 1 : -1;
+    if (na) return B.l - A.l;
+    const fa = Math.round(A.h / 14), fb = Math.round(B.h / 14);
+    if (fa !== fb) return fa - fb;
+    return B.l - A.l;
+  });
+}
+const swatchStock = sw => state.spools.filter(s => s.swatchId === sw.id && !inReorder(s.id)).length;
+
+/* Two independent axes. PLA and PLA+ are the same shelf and PETG is not — but
+   carbon fill cuts across all of them, so it gets its own filter rather than
+   being squeezed into the family list. */
+const family = m => (m || "?").toUpperCase().split(/[+\-\s]/)[0];
+const fillOf = m => ((m || "").toUpperCase().split("-")[1] || "").trim();
+const swMatch = (w, fam, fil) =>
+  (fam === "all" || family(w.material) === fam) &&
+  (fil === "all" || fillOf(w.material) === fil);
+let swFilter = "all", swFill = "all";
+
+function renderSwatches() {
+  const all = sortedSwatches();
+  const fams = [...new Set(all.map(w => family(w.material)))].sort();
+  const fills = [...new Set(all.map(w => fillOf(w.material)).filter(Boolean))].sort();
+  if (swFilter !== "all" && !fams.includes(swFilter)) swFilter = "all";
+  if (swFill !== "all" && !fills.includes(swFill)) swFill = "all";
+
+  /* Counts are contextual, so PETG can't promise three when CF is on and there's one. */
+  const chip = (key, label, n, attr, on) =>
+    `<button class="btn tiny${on ? " on" : ""}" ${attr}="${esc(key)}"${n ? "" : " disabled"}>${esc(label)}<span class="n">${n}</span></button>`;
+  const famChips = fams.length > 1
+    ? [chip("all", "All", all.filter(w => swMatch(w, "all", swFill)).length, "data-swfilter", swFilter === "all"),
+       ...fams.map(f => chip(f, f, all.filter(w => swMatch(w, f, swFill)).length, "data-swfilter", swFilter === f))].join("")
+    : "";
+  const fillChips = fills.length
+    ? `<span class="sep"></span>` +
+      [chip("all", "Any fill", all.filter(w => swMatch(w, swFilter, "all")).length, "data-swfill", swFill === "all"),
+       ...fills.map(x => chip(x, x, all.filter(w => swMatch(w, swFilter, x)).length, "data-swfill", swFill === x))].join("")
+    : "";
+  document.getElementById("swatch-filter").innerHTML = famChips + fillChips;
+  const list = all.filter(w => swMatch(w, swFilter, swFill));
+  document.getElementById("swatch-list").innerHTML = list.length ? list.map(sw => {
+    const n = swatchStock(sw);
+    return `<button class="swatch" data-swatch="${sw.id}" style="background:${esc(sw.hex)};color:${readable(sw.hex)}">
+      <span class="sw-name">${esc(sw.colorName)}</span>
+      <span class="sw-meta">${esc(sw.brand)} · ${esc(sw.material)}</span>
+      <span class="sw-hex">${esc(sw.hex.toUpperCase())}</span>
+      <span class="sw-own${n ? "" : " none"}">${n ? n + (n === 1 ? " roll" : " rolls") : "none left"}</span>
+    </button>`;
+  }).join("") : `<p class="empty-note" style="padding:14px">${swFilter === "all"
+      ? "No colours yet. They appear as you add spools, or add one by hand."
+      : "Nothing here in " + esc([swFilter, swFill].filter(x => x !== "all").join(" ")) + " yet."}</p>`;
+  const owned = list.filter(sw => swatchStock(sw)).length;
+  document.getElementById("swatch-meta").textContent =
+    list.length ? `${list.length} colours · ${owned} in stock` : "";
+}
+
+function swatchForm(existing, onCreate) {
+  const sw = existing || { brand: "", material: "PLA", colorName: "", hex: "#3E7BD1" };
+  const n = existing ? swatchStock(existing) : 0;
+  modal(`<h2>${existing ? "Swatch" : "Add a swatch"}</h2>
+    <div class="field"><label>Brand</label>
+      <input type="text" id="w-brand" value="${esc(sw.brand)}" list="brands" placeholder="Bambu Lab, Prusament…">
+      <datalist id="brands">${[...new Set(state.swatches.map(x => x.brand))].map(b => `<option>${esc(b)}</option>`).join("")}</datalist>
+    </div>
+    <div class="two">
+      <div class="field"><label>Material</label>
+        <select id="w-mat">${MATERIALS.map(m => `<option${m === sw.material ? " selected" : ""}>${m}</option>`).join("")}</select>
+      </div>
+      <div class="field"><label>Colour name</label>
+        <input type="text" id="w-name" value="${esc(sw.colorName)}" placeholder="Galaxy Silver">
+      </div>
+    </div>
+    <div class="field"><label>Hex</label>
+      <div class="swatchrow">
+        <input type="color" id="w-hex" value="${esc(sw.hex)}">
+        <input type="text" id="w-code" class="mono" value="${esc(sw.hex.toUpperCase())}" maxlength="7" spellcheck="false" placeholder="#RRGGBB">
+      </div>
+      <div class="linkrow">
+        <a class="btn ghost tiny linkbtn" id="w-lib" href="#" target="_blank" rel="noopener noreferrer">Find it in the library ↗</a>
+        <a class="btn ghost tiny linkbtn" id="w-find" href="https://filamentcolors.xyz/colormatch/" target="_blank" rel="noopener noreferrer">Match by hex ↗</a>
+      </div>
+    </div>
+    ${existing ? `<p class="empty-note" style="margin:0 0 4px">${n ? `${n} ${n === 1 ? "roll" : "rolls"} in stock right now.` : "Nothing in stock in this colour."}</p>` : ""}
+    <div class="sheet-foot">
+      ${existing ? `<button class="btn danger" id="w-del">Delete</button>` : ""}
+      <span class="spacer"></span>
+      ${existing ? `<button class="btn ghost" id="w-spool">Add a spool of this</button>` : ""}
+      <button class="btn primary" id="w-save">${existing ? "Save" : "Add swatch"}</button>
+    </div>`, scrim => {
+    const picker = scrim.querySelector("#w-hex"), code = scrim.querySelector("#w-code");
+    /* Accept 1b1b1d, #1b1b1d or #1B1 and settle on one canonical form. */
+    const clean = v => {
+      let x = (v || "").trim().replace(/^#/, "");
+      if (/^[0-9a-f]{3}$/i.test(x)) x = x.split("").map(c => c + c).join("");
+      return /^[0-9a-f]{6}$/i.test(x) ? "#" + x.toUpperCase() : null;
+    };
+    picker.oninput = () => { code.value = picker.value.toUpperCase(); };
+    code.oninput = () => { const c = clean(code.value); if (c) picker.value = c; };
+    code.onblur = () => { code.value = clean(code.value) || picker.value.toUpperCase(); };
+    /* filamentcolors.xyz takes a text search and a manufacturer slug:
+       /library/?f=white%20jade&mfr=bambu-lab */
+    const lib = scrim.querySelector("#w-lib");
+    const brandEl = scrim.querySelector("#w-brand"), nameEl = scrim.querySelector("#w-name");
+    const syncLink = () => {
+      const parts = [];
+      const name = nameEl.value.trim();
+      const mfr = brandEl.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      if (name) parts.push("f=" + encodeURIComponent(name));
+      if (mfr && mfr !== "unbranded") parts.push("mfr=" + mfr);
+      lib.href = "https://filamentcolors.xyz/library/" + (parts.length ? "?" + parts.join("&") : "");
+      lib.style.opacity = name || mfr ? "" : ".5";
+    };
+    brandEl.oninput = syncLink;
+    nameEl.oninput = syncLink;
+    syncLink();
+    scrim.querySelector("#w-find").onclick = () => {
+      const hex = clean(code.value) || picker.value.toUpperCase();
+      try {
+        navigator.clipboard.writeText(hex);
+        toast(`${hex} copied — paste it into Color Match.`);
+      } catch (e) { toast(`Search for ${hex} on the Color Match page.`); }
+    };
+    const read = () => ({
+      brand: scrim.querySelector("#w-brand").value.trim() || "Unbranded",
+      material: scrim.querySelector("#w-mat").value,
+      colorName: scrim.querySelector("#w-name").value.trim() || "Unnamed",
+      hex: clean(code.value) || picker.value.toUpperCase(),
+    });
+    scrim.querySelector("#w-save").onclick = () => {
+      const data = read();
+      if (existing) { Object.assign(existing, data); close(); save(); render(); return; }
+      const w = Object.assign({ id: uid("sw-") }, data);
+      state.swatches.push(w);
+      close(); save(); render();
+      if (onCreate) onCreate(w.id);
+    };
+    const del = scrim.querySelector("#w-del");
+    if (del) del.onclick = () => {
+      if (n) { toast(`You still have ${n} ${n === 1 ? "roll" : "rolls"} of this — the swatch would come straight back.`); return; }
+      state.swatches = state.swatches.filter(x => x.id !== existing.id);
+      close(); save(); render(); toast(`${existing.colorName} removed from the swatches.`);
+    };
+    const mk = scrim.querySelector("#w-spool");
+    if (mk) mk.onclick = () => { close(); spoolForm(null, existing.id); };
+  });
+}
+
+/* ============================ moving a whole unit ============================ */
+function moveAll(fromId, target) {
+  const a = unit(fromId);
+  if (!a) return;
+  const b = target.unitId ? unit(target.unitId) : null;
+  if (b === a) return;
+  const ids = a.slots.filter(Boolean);
+  if (!ids.length) return;
+
+  let moved = 0, stuck = 0;
+  ids.forEach(id => {
+    if (b) {
+      const i = b.slots.indexOf(null);
+      if (i < 0) { stuck++; return; }
+      a.slots[a.slots.indexOf(id)] = null;
+      b.slots[i] = id;
+    } else {
+      a.slots[a.slots.indexOf(id)] = null;
+      (target.zone === "reorder" ? state.reorder : state.spares).push(id);
+    }
+    const s = spool(id);
+    if (s.sealed && b && (isMachine(b) || b.kind === "dryer")) { s.sealed = false; s.driedAt = today(); }
+    mark(id); moved++;
+  });
+
+  save(); render();
+  const where = b ? b.name : target.zone === "reorder" ? "Reorder" : "Unassigned";
+  toast(`${moved} spool${moved === 1 ? "" : "s"} → ${esc(where)}` +
+        (stuck ? ` · ${stuck} wouldn't fit, left in ${esc(a.name)}` : ""));
+}
+
+function moveAllPicker(fromId) {
+  const a = unit(fromId);
+  if (!a) return;
+  const n = a.slots.filter(Boolean).length;
+  if (!n) { toast(`${a.name} is empty.`); return; }
+  const rows = state.units.filter(u => u.id !== fromId).map(u => {
+    const free = u.slots.filter(x => !x).length;
+    return `<button class="btn${free ? "" : " ghost"}" data-moveall="${u.id}"${free ? "" : " disabled"}>
+      ${esc(u.name)} — ${free ? free + " free" : "full"}</button>`;
+  }).join("");
+  modal(`<h2>Move ${n} spool${n === 1 ? "" : "s"}</h2>
+    <p class="empty-note" style="margin:-6px 0 12px">Everything currently in ${esc(a.name)}. Anything that
+      doesn't fit stays put.</p>
+    <div class="pickcol">${rows}
+      <button class="btn ghost" data-moveall-zone="spares">Unassigned</button>
+    </div>
+    <div class="sheet-foot"><span class="spacer"></span>
+      <button class="btn ghost" data-close>Cancel</button></div>`, scrim => {
+    scrim.querySelectorAll("[data-moveall]").forEach(b =>
+      b.onclick = () => { close(); moveAll(fromId, { unitId: b.dataset.moveall }); });
+    scrim.querySelectorAll("[data-moveall-zone]").forEach(b =>
+      b.onclick = () => { close(); moveAll(fromId, { zone: b.dataset.moveallZone }); });
+  });
+}
+
+/* --- mark everything in the dryer as dried --- */
+function markDried(unitId) {
+  const u = unit(unitId); if (!u) return;
+  const inside = u.slots.filter(Boolean);
+  if (!inside.length) { toast("The dryer is empty — drag some spools in first."); return; }
+  inside.forEach(id => spool(id).driedAt = today());
+  save(); render();
+  toast(`${inside.length} spool${inside.length > 1 ? "s" : ""} marked dry.`);
+}
+
+/* --- rename a unit --- */
+/* --- global clicks --- */
+document.addEventListener("click", e => {
+  const c = e.target.closest("[data-cycle]");
+  if (c) { markDried(c.dataset.cycle); return; }
+  const d = e.target.closest("[data-projdel]");
+  if (d) {
+    state.projects = state.projects.filter(x => x.id !== d.dataset.projdel);
+    save(); render(); return;
+  }
+  const ua = e.target.closest("[data-useadd]");
+  if (ua) {
+    const p = state.projects.find(x => x.id === ua.dataset.useadd);
+    if (p) { p.uses.push({ swatchId: null, grams: 0 }); save(); render(); }
+    return;
+  }
+  const ud = e.target.closest("[data-usedel]");
+  if (ud) {
+    const [pid, i] = ud.dataset.usedel.split("|");
+    const p = state.projects.find(x => x.id === pid);
+    if (p) { p.uses.splice(+i, 1); save(); render(); }
+    return;
+  }
+  const um = e.target.closest("[data-umove]");
+  if (um) { if (Date.now() - lastUnitDrag > 300) moveAllPicker(um.dataset.umove); return; }
+  const uc = e.target.closest("[data-ucollapse]");
+  if (uc) {
+    if (Date.now() - lastUnitDrag < 300) return;     /* just finished dragging the unit */
+    const u = unit(uc.dataset.ucollapse);
+    if (u) { u.open = u.open === false; save(); render(); }
+    return;
+  }
+  const ff = e.target.closest("[data-swfilter]");
+  if (ff) { swFilter = ff.dataset.swfilter; renderSwatches(); return; }
+  const fx = e.target.closest("[data-swfill]");
+  if (fx) { swFill = fx.dataset.swfill; renderSwatches(); return; }
+  const sw = e.target.closest("[data-swatch]");
+  if (sw) { swatchForm(state.swatches.find(x => x.id === sw.dataset.swatch)); return; }
+  const t = e.target.closest("[data-toggle]");
+  if (t) { const f = folder(t.dataset.toggle); f.open = !f.open; save(); render(); return; }
+  const fm = e.target.closest("[data-fmenu]");
+  if (fm) { folderMenu(fm.dataset.fmenu); return; }
+  const pm = e.target.closest("[data-projmenu]");
+  if (pm) { projectMenu(pm.dataset.projmenu); return; }
+});
+
+/* ---------- dragging a project into a folder (mouse only; touch uses the menu) ---------- */
+let dragProj = null;
+document.addEventListener("dragstart", e => {
+  const card = e.target.closest("[data-drag-proj]");
+  if (!card) return;
+  dragProj = card.dataset.dragProj;
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", dragProj);
+});
+document.addEventListener("dragend", () => { dragProj = null; clearOver(); });
+document.addEventListener("dragover", e => {
+  if (!dragProj) return;
+  const row = e.target.closest(".frow, .log");
+  clearOver();
+  if (row) { row.classList.add("over"); e.preventDefault(); }
+});
+document.addEventListener("drop", e => {
+  if (!dragProj) return;
+  const row = e.target.closest(".frow");
+  const p = state.projects.find(x => x.id === dragProj);
+  clearOver();
+  if (!p) return;
+  e.preventDefault(); e.stopPropagation();
+  p.folder = row ? row.dataset.folder : null;
+  const f = row ? folder(row.dataset.folder) : null;
+  if (f) f.open = true;
+  dragProj = null;
+  save(); render();
+  toast(f ? `${p.title} → ${f.name}` : `${p.title} moved out of its folder.`);
+});
+
+/* ---------- tabs ---------- */
+let tab = "bench";
+function setTab(t) {
+  tab = t;
+  ["bench", "swatches", "projects", "settings"].forEach(x =>
+    document.getElementById("tab-" + x).hidden = x !== t);
+  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  const fab = document.getElementById("fab");
+  fab.hidden = t === "settings";
+  fab.textContent = { bench: "Add spool", swatches: "Add swatch", projects: "New folder" }[t] || "";
+  scrollTo(0, 0);
+}
+document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => setTab(b.dataset.tab));
+
+document.getElementById("fab").onclick = () =>
+  tab === "bench" ? swatchPicker(addSealedRoll)
+  : tab === "swatches" ? swatchForm(null)
+  : newFolder(null);
+setTab("bench");
+document.getElementById("reset-btn").onclick = () => modal(
+  `<h2>Start over?</h2>
+   <p style="margin:0 0 4px;color:var(--ink-soft)">This clears your spools, layout and project list, and puts the sample data back.</p>
+   <div class="sheet-foot"><span class="spacer"></span>
+     <button class="btn ghost" data-close>Keep my data</button>
+     <button class="btn danger" id="x-yes">Reset</button></div>`,
+  scrim => { scrim.querySelector("#x-yes").onclick = () => { state = seed(); close(); save(); render(); toast("Reset — sample data loaded."); }; });
+
+load();
+</script>
