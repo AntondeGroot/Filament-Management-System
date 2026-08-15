@@ -69,7 +69,13 @@ function writeState(state) {
   });
 }
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+/* Local, matching iso() in the page. The dates in state.due are local days, so
+   comparing them against a UTC "today" would disagree with the page for the
+   first hours of every morning east of Greenwich. */
+const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 async function checkDrying() {
   const state = await readState();
@@ -86,7 +92,7 @@ async function checkDrying() {
 
   const names = due.slice(0, 3).map(d => d.name).join(", ");
   await self.registration.showNotification(
-    due.length + " spool" + (due.length > 1 ? "s" : "") + " need drying",
+    due.length === 1 ? "1 spool needs drying" : due.length + " spools need drying",
     {
       body: names + (due.length > 3 ? " and " + (due.length - 3) + " more" : ""),
       icon: "./icon-192.png",

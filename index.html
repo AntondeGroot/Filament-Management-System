@@ -477,7 +477,13 @@ const dryingOn = () => state.dryTracking !== false && Object.values(state.dryWee
 /* Days read better up close, weeks read better after a fortnight. */
 const dur = d => d < 14 ? d + " days" : Math.round(d / 7) + " weeks";
 const durShort = d => d < 14 ? d + "d" : Math.round(d / 7) + "w";
-const iso = d => d.toISOString().slice(0, 10);
+/* Local, not UTC. Every date in the app is a local day: driedAt is parsed as
+   "…T00:00:00" with no zone, and <input type="date"> hands back the day on the
+   wall. toISOString() would re-read those as UTC and report the day before for
+   anyone east of Greenwich — a due date a day early, and a "Dried today" that
+   records yesterday until 02:00. */
+const iso = d =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const today = () => iso(new Date());
 const daysSince = d => Math.max(0, Math.round((Date.now() - new Date(d + "T00:00:00").getTime()) / 864e5));
 const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString(undefined, { day:"numeric", month:"short" });
@@ -1824,6 +1830,12 @@ async function askNotify(on) {
 
 /* Once a day at most, and only for what's actually overdue. Off on Android,
    where the alarms below cover the app being open just as well as closed. */
+
+/* Both notification paths open with this line, so the count and the verb agree
+   in one place rather than two. sw.js says the same thing in its own words — it
+   cannot see this scope, and a shared string is not worth a file to import. */
+const dryingHeadline = n => (n === 1 ? "1 spool needs drying" : `${n} spools need drying`);
+
 function notifyCheck(force) {
   if (native()) return;
   if (!state.notify || !dryingOn()) return;
@@ -1836,7 +1848,7 @@ function notifyCheck(force) {
   save();
   const names = due.slice(0, 3).map(s => info(s).colorName).join(", ");
   try {
-    new Notification(`${due.length} spool${due.length > 1 ? "s" : ""} need drying`, {
+    new Notification(dryingHeadline(due.length), {
       body: names + (due.length > 3 ? ` and ${due.length - 3} more` : ""),
       tag: "filament-drying",
     });
@@ -1877,7 +1889,7 @@ function alarms() {
       /* Days since the epoch: stable, so rescheduling replaces the alarm for a
          morning instead of stacking a second one on top of it. */
       id: Math.round(when / 864e5),
-      title: `${names.length} spool${names.length > 1 ? "s" : ""} need drying`,
+      title: dryingHeadline(names.length),
       body: names.slice(0, 3).join(", ") + (names.length > 3 ? ` and ${names.length - 3} more` : ""),
       schedule: { at: new Date(when), allowWhileIdle: true },
     }));
