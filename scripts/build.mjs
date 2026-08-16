@@ -27,11 +27,19 @@ const FILES = [
   "icon-512-maskable.png",
 ];
 
+/* Directories copied whole. src/ is the app being taken apart a module at a
+   time; index.html imports from it, so a build without it is a broken app
+   rather than a smaller one. */
+const DIRS = ["src"];
+
 await rm(OUT, { recursive: true, force: true });
 await mkdir(OUT, { recursive: true });
 
 for (const name of FILES) {
   await cp(join(ROOT, name), join(OUT, name));
 }
+for (const dir of DIRS) {
+  await cp(join(ROOT, dir), join(OUT, dir), { recursive: true });
+}
 
-console.log(`built dist/ — ${FILES.length} files`);
+console.log(`built dist/ — ${FILES.length} files and ${DIRS.length} directory`);
