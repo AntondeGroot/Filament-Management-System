@@ -1050,17 +1050,78 @@ function targetFrom(el) {
 }
 const clearOver = () => document.querySelectorAll(".over").forEach(e => e.classList.remove("over"));
 
+/* ---------- reaching a unit that is off screen ----------
+   A drag cannot rely on the page scrolling itself: on touch the drag blocks
+   scrolling outright, and with a mouse there is nothing to scroll with while a
+   button is held. So the drag does the scrolling. Within EDGE pixels of the top
+   or bottom of the viewport the page creeps that way, faster the nearer the
+   edge, which is the only way to drop a roll into a unit that is not currently
+   on screen.
+
+   The pointer is still while this happens and the content is not, so the drop
+   target has to be recomputed every frame rather than only on pointermove —
+   hence the aiming being pulled out of the move handlers below. */
+const EDGE = 76, EDGE_SPEED = 16;
+let edgeRaf = 0, edgeRate = 0, aimX = 0, aimY = 0;
+
+function edgeWatch(x, y) {
+  aimX = x; aimY = y;
+  const above = EDGE - y, below = y - (innerHeight - EDGE);
+  edgeRate = above > 0 ? -Math.min(EDGE_SPEED, (above / EDGE) * EDGE_SPEED)
+           : below > 0 ? Math.min(EDGE_SPEED, (below / EDGE) * EDGE_SPEED)
+           : 0;
+  if (edgeRate && !edgeRaf) edgeRaf = requestAnimationFrame(edgeStep);
+}
+
+function edgeStep() {
+  edgeRaf = 0;
+  if (!edgeRate) return;
+  const was = scrollY;
+  scrollBy(0, edgeRate);
+  /* At the end of the page there is nothing left to give, so stop rather than
+     burning a frame loop against a wall. */
+  if (scrollY === was) { edgeRate = 0; return; }
+  if (drag && drag.active) aimDrag(aimX, aimY);
+  else if (udrag && udrag.active) aimUnitDrag(aimX, aimY);
+  else { edgeRate = 0; return; }
+  edgeRaf = requestAnimationFrame(edgeStep);
+}
+
+const edgeStop = () => { edgeRate = 0; if (edgeRaf) cancelAnimationFrame(edgeRaf); edgeRaf = 0; };
+
+/* Where the dragged roll is pointing. The ghost is hidden for the hit test
+   because it sits under the cursor and would otherwise be all it ever finds. */
+function aimDrag(x, y) {
+  drag.ghost.style.left = (x - 60) + "px";
+  drag.ghost.style.top = (y - 55) + "px";
+  drag.ghost.style.display = "none";
+  const hit = targetFrom(document.elementFromPoint(x, y));
+  drag.ghost.style.display = "";
+  clearOver();
+  if (hit) hit.el.classList.add("over");
+  drag.drop = hit ? hit.target : null;
+}
+
 /* Touch swipes, mouse drags. Trying to do both on one pointer fights itself:
    a horizontal drag and a horizontal swipe are the same gesture. */
 let udrag = null, lastUnitDrag = 0;
 document.addEventListener("pointerdown", e => {
   const grip = e.target.closest("[data-grip]");
   if (grip) {
-    if (e.pointerType === "touch" || e.button > 0) return;   /* touch taps open the picker instead */
+    if (e.button > 0) return;
     const u = unit(grip.dataset.grip);
     if (!u || !u.slots.some(Boolean)) return;
-    udrag = { id: u.id, x: e.clientX, y: e.clientY, active: false, n: u.slots.filter(Boolean).length };
-    grip.setPointerCapture(e.pointerId);
+    /* With a mouse the whole header is the handle. On touch it cannot be — the
+       header is also the collapse toggle — so only the move button starts a
+       drag, and only after a press-and-hold, which leaves a plain tap free to
+       open the picker as it always did. */
+    const touch = e.pointerType === "touch";
+    const handle = touch ? e.target.closest("[data-umove]") : grip;
+    if (!handle) return;
+    udrag = { id: u.id, x: e.clientX, y: e.clientY, active: false,
+              n: u.slots.filter(Boolean).length, touch, handle };
+    handle.setPointerCapture(e.pointerId);
+    if (touch) udrag.hold = setTimeout(startUnitTouchDrag, 320);
     return;
   }
   const card = e.target.closest(".spool");
@@ -1083,16 +1144,11 @@ document.addEventListener("pointermove", e => {
     drag.ghost = g;
     drag.card.classList.add("lifted");
   }
-  drag.ghost.style.left = (e.clientX - 60) + "px";
-  drag.ghost.style.top = (e.clientY - 55) + "px";
-  drag.ghost.style.display = "none";
-  const hit = targetFrom(document.elementFromPoint(e.clientX, e.clientY));
-  drag.ghost.style.display = "";
-  clearOver();
-  if (hit) hit.el.classList.add("over");
-  drag.drop = hit ? hit.target : null;
+  aimDrag(e.clientX, e.clientY);
+  edgeWatch(e.clientX, e.clientY);
 });
 document.addEventListener("pointerup", () => {
+  edgeStop();
   if (udrag) { unitDragEnd(); return; }
   if (swipe) { swipeEnd(); return; }
   if (!drag) return;
@@ -1108,6 +1164,7 @@ document.addEventListener("pointerup", () => {
   } else openSpool(d.id);
 });
 document.addEventListener("pointercancel", () => {
+  edgeStop();
   if (udrag) { unitDragEnd(true); return; }
   if (swipe) { swipeCancel(); return; }
   if (!drag) return;
@@ -1116,21 +1173,51 @@ document.addEventListener("pointercancel", () => {
   endTouchDrag(drag);
   document.body.classList.remove("dragging"); clearOver(); drag = null;
 });
+/* The hold has fired: the pile is now in hand. Aimed straight away, because the
+   finger may not move again before it is let go. */
+function startUnitTouchDrag() {
+  if (!udrag || udrag.active) return;
+  udrag.hold = null;
+  udrag.active = true;
+  document.body.classList.add("dragging");
+  document.addEventListener("touchmove", blockScroll, { passive: false });
+  if (navigator.vibrate) navigator.vibrate(12);
+  udrag.ghost = unitGhost(udrag.n);
+  aimUnitDrag(udrag.x, udrag.y);
+}
+
+function unitGhost(n) {
+  const g = document.createElement("div");
+  g.className = "unit-ghost";
+  g.textContent = n + (n === 1 ? " spool" : " spools");
+  document.body.appendChild(g);
+  return g;
+}
+
 function unitDragMove(e) {
+  if (udrag.touch && !udrag.active) {
+    /* Still waiting on the hold. Drift is not an intention; past the slop the
+       finger is scrolling the page and the pile was never picked up. */
+    if (Math.hypot(e.clientX - udrag.x, e.clientY - udrag.y) <= HOLD_SLOP) return;
+    clearTimeout(udrag.hold);
+    udrag = null;
+    return;
+  }
   if (!udrag.active) {
     if (Math.hypot(e.clientX - udrag.x, e.clientY - udrag.y) < 7) return;
     udrag.active = true;
     document.body.classList.add("dragging");
-    const g = document.createElement("div");
-    g.className = "unit-ghost";
-    g.textContent = udrag.n + (udrag.n === 1 ? " spool" : " spools");
-    document.body.appendChild(g);
-    udrag.ghost = g;
+    udrag.ghost = unitGhost(udrag.n);
   }
-  udrag.ghost.style.left = (e.clientX + 14) + "px";
-  udrag.ghost.style.top = (e.clientY - 14) + "px";
+  aimUnitDrag(e.clientX, e.clientY);
+  edgeWatch(e.clientX, e.clientY);
+}
+
+function aimUnitDrag(x, y) {
+  udrag.ghost.style.left = (x + 14) + "px";
+  udrag.ghost.style.top = (y - 14) + "px";
   udrag.ghost.style.display = "none";
-  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const el = document.elementFromPoint(x, y);
   udrag.ghost.style.display = "";
   clearOver();
   udrag.drop = null;
@@ -1145,9 +1232,13 @@ function unitDragMove(e) {
 }
 function unitDragEnd(cancelled) {
   const d = udrag; udrag = null;
+  clearTimeout(d.hold);
+  if (d.touch) document.removeEventListener("touchmove", blockScroll, { passive: false });
   document.body.classList.remove("dragging");
   clearOver();
   if (d.ghost) d.ghost.remove();
+  /* Let go without ever picking it up: that was a tap, and the click handler
+     opens the picker. lastUnitDrag stays untouched so it is not suppressed. */
   if (!d.active || cancelled) return;
   lastUnitDrag = Date.now();
   if (d.drop) moveAll(d.id, d.drop);
@@ -1205,12 +1296,20 @@ function endTouchDrag(d) {
   document.removeEventListener("touchmove", blockScroll, { passive: false });
   if (d.card) d.card.style.touchAction = "";
 }
+/* A finger resting on a card drifts a few pixels without being asked to. Below
+   this, nothing has been decided yet and the press-and-hold keeps counting. */
+const HOLD_SLOP = 12;
+
 function swipeMove(e) {
   const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
-  if (swipe.hold && Math.hypot(dx, dy) > 6) { clearTimeout(swipe.hold); swipe.hold = null; }
   if (!swipe.active) {
+    /* Drift is not an intention. This used to cancel the whole gesture as soon
+       as vertical movement beat horizontal by a single pixel — which a resting
+       finger manages about half the time, killing the hold before it could
+       fire. That is why dragging on a phone almost always ended as a tap. */
+    if (Math.hypot(dx, dy) <= HOLD_SLOP) return;
+    clearTimeout(swipe.hold); swipe.hold = null;
     if (Math.abs(dy) > Math.abs(dx)) { swipeCancel(); return; }   /* let the page scroll */
-    if (Math.abs(dx) < 10) return;
     swipe.active = true;
     swipe.card.classList.add("swiping");
     const r = swipe.card.getBoundingClientRect();

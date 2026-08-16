@@ -54,6 +54,43 @@ function freezeClock(run, when) {
   })()`);
 }
 
+/* The drag code needs four things JSDOM does not implement: pointer capture,
+ * hit testing, animation frames, and a window that scrolls. Without them the
+ * handlers throw before reaching any logic worth testing.
+ *
+ * Each is stubbed to the smallest thing that lets the code run, and frames are
+ * left inert on purpose — queued rather than fired — so a test steps the
+ * scrolling itself instead of racing a real clock. `frames()` runs whatever is
+ * pending; `scrolledBy()` reports how far the page was asked to move. */
+export function stubDragEnvironment(run) {
+  run(`(() => {
+    Element.prototype.setPointerCapture = function () {};
+    Element.prototype.releasePointerCapture = function () {};
+    document.elementFromPoint = () => null;
+    globalThis.__queued = [];
+    globalThis.__scrolled = 0;
+    globalThis.requestAnimationFrame = fn => globalThis.__queued.push(fn);
+    globalThis.cancelAnimationFrame = () => { globalThis.__queued.length = 0; };
+    globalThis.scrollBy = (x, y) => { globalThis.__scrolled += y; };
+    /* scrollY has to answer for the scrolling above, or the drag concludes the
+       page will not move and stops after a single frame — that check is how it
+       knows it has reached the end of the document. */
+    Object.defineProperty(globalThis, "scrollY", {
+      configurable: true,
+      get: () => globalThis.__scrolled,
+    });
+  })()`);
+}
+
+/* Runs the frames the drag has queued, once each. */
+export const frames = run => run(`(() => {
+  const due = globalThis.__queued.splice(0);
+  due.forEach(fn => fn());
+  return due.length;
+})()`);
+
+export const scrolledBy = run => run("globalThis.__scrolled");
+
 /* Puts the app on a known bench. Starts from the app's own emptyBench() so a
    test only has to state the part it cares about, and so a new required field
    shows up here rather than as a mystery failure. */
