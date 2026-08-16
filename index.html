@@ -33,7 +33,15 @@ button{font:inherit;color:inherit;cursor:pointer}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
 /* ---------- header ---------- */
-.bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:13px 20px;background:var(--machine);color:#EDECE8;position:sticky;top:0;z-index:40}
+/* The page is laid out with viewport-fit=cover and, from Android 15, the app
+   draws edge to edge whether it asks to or not — so the top of this bar sits
+   under the status bar and the wordmark ends up behind the clock and the
+   notification icons. The bottom insets were already handled for the tab bar
+   and the sheets; the top one was missed. Sides too, for a landscape cutout. */
+.bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:calc(13px + env(safe-area-inset-top, 0px)) calc(20px + env(safe-area-inset-right, 0px))
+          13px calc(20px + env(safe-area-inset-left, 0px));
+  background:var(--machine);color:#EDECE8;position:sticky;top:0;z-index:40}
 .wordmark{font-family:var(--display);font-weight:700;font-size:25px;letter-spacing:.02em;text-transform:uppercase;line-height:1}
 .wordmark span{color:#8A9099}
 .stats{display:flex;gap:16px;flex-wrap:wrap;margin-left:auto;align-items:center}
@@ -356,7 +364,11 @@ body.dragging{cursor:grabbing;user-select:none}
 }
 @media (max-width:700px){
   body{padding-bottom:62px}
-  .bar{padding:10px 13px;gap:10px}
+  /* Keeps the status bar allowance from the base rule — a plain padding here
+     would put the wordmark back under the clock on exactly the devices that
+     have a status bar to hide behind. */
+  .bar{padding:calc(10px + env(safe-area-inset-top, 0px)) calc(13px + env(safe-area-inset-right, 0px))
+       10px calc(13px + env(safe-area-inset-left, 0px));gap:10px}
   .wordmark{font-size:20px}
   .stats{gap:13px}
   .stat b{font-size:14px}
