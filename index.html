@@ -314,6 +314,21 @@ body.dragging{cursor:grabbing;user-select:none}
 .swatch{display:flex;align-items:center;gap:12px;width:100%;padding:15px 14px;border:0;text-align:left;
         box-shadow:inset 0 -1px 0 rgba(0,0,0,.14);cursor:pointer}
 .swatch:hover{filter:brightness(1.06)}
+/* A translucent filament is the colour with light getting through it, drawn as
+   a sheen falling across gloss rather than as a chequer — a chequer is a
+   graphics-app convention borrowed from outside, and its pattern competes with
+   the colour you are trying to match a spool against.
+
+   Both ends of the row stay the true colour and only the middle thins out. That
+   is what keeps the swatch usable: the whole point of the list is matching a
+   colour by eye, and a row that is translucent end to end never shows you the
+   colour it claims to be.
+
+   The first background layer sits on top, so the highlight is listed before the
+   colour it falls across. */
+.swatch.clear{background-image:linear-gradient(100deg,transparent 34%,rgba(255,255,255,.34) 44%,
+  rgba(255,255,255,.10) 52%,transparent 62%),
+  linear-gradient(100deg,var(--solid) 0 20%,var(--tint) 40% 60%,var(--solid) 80% 100%)}
 .sw-name{font-family:var(--display);text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:16px;
          white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sw-meta{font-size:12px;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
@@ -1342,7 +1357,7 @@ function swatchPicker(onPick) {
   const list = sortedSwatches();
   modal(`<h2>Which colour?</h2>
     <div class="swatches" style="max-height:52vh;overflow:auto;margin-bottom:12px">
-      ${list.map(sw => `<button class="swatch" data-pick="${sw.id}" style="background:${esc(sw.hex)};color:${readable(sw.hex)};padding:11px 12px">
+      ${list.map(sw => `<button class="swatch${sw.transparent ? " clear" : ""}" data-pick="${sw.id}" style="${swatchPaint(sw)};padding:11px 12px">
         <span class="sw-name" style="font-size:14px">${esc(sw.colorName)}</span>
         <span class="sw-meta">${esc(sw.brand)} · ${esc(sw.material)}</span>
       </button>`).join("")}
@@ -2164,6 +2179,21 @@ const readable = hex => {
   const [r, g, b] = rgb(hex);
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.56 ? "#16181D" : "#F2F1ED";
 };
+
+/* How much of a translucent colour survives where the row thins out. */
+const CLEAR_ALPHA = 0.7;
+const CLEAR_HEX = Math.round(CLEAR_ALPHA * 255).toString(16);
+
+/* The inline half of a swatch's paint job. Opaque ones set a flat background;
+   translucent ones hand the stylesheet the true colour and a thinned copy, and
+   let it do the layering.
+
+   Both take their label colour from the raw hex, because both ends of a
+   translucent row are the raw hex — the name sits on one, the stock count on
+   the other. */
+const swatchPaint = sw => (sw.transparent
+  ? `--solid:${esc(sw.hex)};--tint:${esc(sw.hex)}${CLEAR_HEX};color:${readable(sw.hex)}`
+  : `background:${esc(sw.hex)};color:${readable(sw.hex)}`);
 /* Rainbow first, then the neutrals as their own band from white down to black.
  *
  * HUE_START is where the circle gets cut, and a circle has to be cut somewhere.
@@ -2268,7 +2298,7 @@ function renderSwatches() {
   const list = all.filter(w => swMatch(w, swFilter, swFill));
   document.getElementById("swatch-list").innerHTML = list.length ? list.map(sw => {
     const n = swatchStock(sw);
-    return `<button class="swatch" data-swatch="${sw.id}" style="background:${esc(sw.hex)};color:${readable(sw.hex)}">
+    return `<button class="swatch${sw.transparent ? " clear" : ""}" data-swatch="${sw.id}" style="${swatchPaint(sw)}">
       <span class="sw-name">${esc(sw.colorName)}</span>
       <span class="sw-meta">${esc(sw.brand)} · ${esc(sw.material)}</span>
       <span class="sw-hex">${esc(sw.hex.toUpperCase())}</span>
@@ -2848,6 +2878,9 @@ function swatchForm(existing, onCreate) {
         <button class="iconbtn" id="w-cam" title="Read the colour off a photo" aria-label="Read the colour off a photo">${CAMERA_ICON}</button>
         <input type="file" id="w-shot" accept="image/*" capture="environment" hidden>
       </div>
+      <label class="never" style="display:inline-flex;margin-top:9px">
+        <input type="checkbox" id="w-clear"${sw.transparent ? " checked" : ""}> transparent
+      </label>
       <div class="linkrow">
         <a class="btn ghost tiny linkbtn" id="w-lib" href="#" target="_blank" rel="noopener noreferrer">Find it in the library ↗</a>
         <a class="btn ghost tiny linkbtn" id="w-find" href="https://filamentcolors.xyz/colormatch/" target="_blank" rel="noopener noreferrer">Match by hex ↗</a>
@@ -2922,6 +2955,7 @@ function swatchForm(existing, onCreate) {
       material: scrim.querySelector("#w-mat").value,
       colorName: scrim.querySelector("#w-name").value.trim() || "Unnamed",
       hex: clean(code.value) || current,
+      transparent: scrim.querySelector("#w-clear").checked,
     });
     scrim.querySelector("#w-save").onclick = () => {
       const data = read();
