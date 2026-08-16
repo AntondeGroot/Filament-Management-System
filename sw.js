@@ -11,7 +11,10 @@
    with them. All the worker does is compare dates. */
 
 const CACHE = "filament-manager-v1";
-const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
+const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png",
+  /* Modules index.html imports. Missing one means the app opens offline and
+     then fails the moment that part of it is reached. */
+  "./src/mesh.js"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

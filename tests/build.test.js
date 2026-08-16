@@ -39,7 +39,12 @@ describe("scripts/build.mjs", () => {
       "icon-512.png",
       "index.html",
       "manifest.webmanifest",
+      "src",
       "sw.js",
     ]);
+
+    /* index.html imports from src/, so an empty one ships an app that opens and
+       then fails the moment a .3mf is dropped on it. */
+    expect(await readdir(inDist("src"))).toContain("mesh.js");
   });
 });
