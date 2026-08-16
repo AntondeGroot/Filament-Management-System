@@ -32,4 +32,10 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- getUserMedia in the webview: the swatch form reads a filament's colour
+         off the live preview. Capacitor's WebChromeClient asks for this at the
+         moment the camera is first opened, not at launch. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 </manifest>
