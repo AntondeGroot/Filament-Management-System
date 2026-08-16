@@ -269,6 +269,41 @@ body.dragging{cursor:grabbing;user-select:none}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .swatchrow{display:flex;gap:8px;align-items:center}
 .swatchrow input[type=text]{flex:1}
+/* --- sampling a colour off a photo --- */
+.iconbtn{display:inline-flex;align-items:center;justify-content:center;padding:6px;border:1px solid var(--rule);
+  border-radius:2px;background:transparent;color:var(--ink-soft);flex:0 0 auto}
+.iconbtn:hover{background:rgba(0,0,0,.06);color:var(--ink)}
+.sampler{z-index:110}   /* above the swatch sheet it is opened from, which stays put */
+.stage{position:relative;width:100%;aspect-ratio:4/3;background:#101216;border:1px solid var(--ink);
+  border-radius:3px;overflow:hidden;touch-action:none;cursor:grab}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+/* The outer shadow is a full-screen scrim with a hole in it: everything outside
+   the square dims, so the region being read is unmistakable. */
+.reticle{position:absolute;left:50%;top:50%;width:58px;height:58px;transform:translate(-50%,-50%);
+  border:2px solid #fff;border-radius:2px;pointer-events:none;
+  box-shadow:0 0 0 1px rgba(0,0,0,.7),0 0 0 9999px rgba(16,18,22,.42)}
+/* --- the colour wheel --- */
+.chipbtn{width:38px;height:30px;border-radius:2px;border:1px solid var(--ink);padding:0;flex:0 0 auto;cursor:pointer}
+.wheel{position:relative;width:min(268px,70vw);aspect-ratio:1;margin:2px auto 0;touch-action:none;cursor:crosshair}
+/* Namespaced, because .disc and .dot are already the spool graphic. Scoping
+   under .wheel is not enough on its own: it wins the properties it declares and
+   silently inherits the ones it does not, which is how the layers ended up
+   sized 42px by a rule about spools. */
+.wheel .cw-layer{position:absolute;inset:0;border-radius:50%}
+/* Hue runs clockwise from red at twelve o'clock, which is what the picking
+   maths below assumes; saturation falls off to white at the middle. */
+.wheel .cw-hue{background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red)}
+.wheel .cw-sat{background:radial-gradient(circle closest-side,#fff,rgba(255,255,255,0))}
+.wheel .cw-shade{background:#000;opacity:0}
+.wheel .cw-dot{position:absolute;width:18px;height:18px;border-radius:50%;border:2px solid #fff;
+  box-shadow:0 0 0 1px rgba(0,0,0,.7);transform:translate(-50%,-50%);pointer-events:none}
+.tuning{margin-top:10px;display:grid;gap:6px}
+.tuning label{display:grid;grid-template-columns:74px 1fr auto;gap:9px;align-items:center;font-size:11px;
+  font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft)}
+.tuning .val{font-family:var(--mono);font-size:11px;min-width:34px;text-align:right}
+.readout{display:flex;gap:9px;align-items:center;margin-top:11px}
+.readout .chip{width:36px;height:36px;border-radius:3px;border:1px solid var(--ink);flex:0 0 auto}
+.readout .hexcode{font-family:var(--mono);font-size:15px;letter-spacing:.04em}
 .sheet-foot{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
 .sheet-foot .spacer{flex:1}
 
@@ -510,6 +545,12 @@ function emptyBench() {
     dryTracking: true,
     notify: false,
     notifiedOn: null,
+    /* How the camera should be set up to read a colour in this room. Belongs to
+       the device rather than the inventory — another phone has another sensor,
+       and a workshop has its own light — but it is worth keeping, because
+       finding the settings that suit the bench is a fiddle you should only
+       have to do once. */
+    camera: {},
     deleted: {},
   };
 }
@@ -582,6 +623,7 @@ async function load() {
 }
 function migrate() {
   if (!state.deleted) state.deleted = {};
+  if (!state.camera) state.camera = {};
   if (!("notify" in state)) { state.notify = false; state.notifiedOn = null; }
   /* Dryers arrived after the first release, so a bench saved before then gets one
      inserted. An empty bench is not an old bench — it has nothing to migrate, and
@@ -2098,27 +2140,97 @@ document.addEventListener("click", e => {
 /* A record of colours, not of plastic. Spools feed it automatically and it
    keeps the entry after the last roll is gone — that's the whole point. */
 
-function hsl(hex) {
-  const [r, g, b] = rgb(hex).map(v => v / 255);
-  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
-  let hh = 0;
-  if (d) hh = 60 * (mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4);
-  return { h: hh, c: d, l: (mx + mn) / 2 };   /* chroma, not saturation: an off-white is neutral, not a pale yellow */
+/* Ordering colours is a perceptual problem, so it is done in a perceptual
+   space. OKLCH costs about fifteen lines and fixes two things HSL gets wrong
+   for a shelf of filament: its lightness calls #F5C518 and #3E7BD1 equally
+   bright, which no eye agrees with, and its hue crowds every yellow into twenty
+   degrees while letting the greens sprawl over sixty. */
+const srgbToLinear = u => (u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4));
+
+function oklch(hex) {
+  const [r8, g8, b8] = rgb(hex);
+  const r = srgbToLinear(r8 / 255), g = srgbToLinear(g8 / 255), b = srgbToLinear(b8 / 255);
+  const cl = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const cm = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const cs = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  const L = 0.2104542553 * cl + 0.7936177850 * cm - 0.0040720468 * cs;
+  const a = 1.9779984951 * cl - 2.4285922050 * cm + 0.4505937099 * cs;
+  const bb = 0.0259040371 * cl + 0.7827717662 * cm - 0.8086757660 * cs;
+  let h = (Math.atan2(bb, a) * 180) / Math.PI;
+  if (h < 0) h += 360;
+  return { L, C: Math.hypot(a, bb), h };
 }
 const readable = hex => {
   const [r, g, b] = rgb(hex);
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.56 ? "#16181D" : "#F2F1ED";
 };
-/* Rainbow first, then the neutrals as their own band from white down to black. */
+/* Rainbow first, then the neutrals as their own band from white down to black.
+ *
+ * HUE_START is where the circle gets cut, and a circle has to be cut somewhere.
+ * 350° puts the join between magenta and crimson so every red stays together at
+ * the front. Sorting raw hue cuts at 0° instead, which sends a warm red to one
+ * end of the shelf and a cool one to the other — they differ by a couple of
+ * degrees and end up as far apart as it is possible to be.
+ *
+ * Within a band the order is vivid to muted, so a family reads as a run from
+ * the pure colour down through its greyed and pastel versions. Lightness only
+ * breaks ties: ordering a band by lightness alone buried a pure orange behind a
+ * pale peach and a brown that happened to share its hue. */
+const HUE_START = 350, HUE_BAND = 20, NEUTRAL_C = 0.04;
+
+/* Brown is not a hue. It is a warm colour with most of the chroma taken out,
+ * which is why a chroma threshold alone scatters it: #C09F83 keeps just enough
+ * to sort among the oranges while #D9C7B2 and #625141 fall through to the
+ * greys — three shades of the same thing in three different places.
+ *
+ * So warmth decides, not colourfulness. Below EARTH_C a colour that still leans
+ * orange is an earth tone; one that leans blue, or leans nowhere, is a grey.
+ * #899FAB and #625141 have almost identical chroma and belong in different
+ * places, and their hue is the only thing that says so.
+ *
+ * The floor matters as much as the ceiling. Hue is a direction, and a colour
+ * with no chroma is not pointing anywhere — pure white computes to hue 90,
+ * squarely in the warm range, and would file itself under brown. Below
+ * EARTH_C[0] the hue is 8-bit rounding noise and the colour is simply grey.
+ *
+ * The arc runs from 330°, so it takes in the washed-out pinks as well as the
+ * tans. A pale pink is the same phenomenon as a brown — a warm colour with the
+ * chroma drained — and #F1DEDF has less chroma than #899FAB while still
+ * obviously being a pink and not a grey. That asymmetry is real: blues and
+ * greens desaturate into greys, warm colours desaturate into pinks and tans and
+ * keep their name. */
+const EARTH_C = [0.015, 0.09], EARTH_HUE = [330, 110], EARTH_BAND = 40;
+
+const inArc = (h, [from, to]) => (from <= to ? h >= from && h <= to : h >= from || h <= to);
+
+/* 0 rainbow, 1 earth, 2 neutral — the three runs the shelf reads in. */
+const colourTier = t =>
+  t.C >= EARTH_C[0] && t.C < EARTH_C[1] && inArc(t.h, EARTH_HUE) ? 1
+    : t.C < NEUTRAL_C ? 2
+    : 0;
+
 function sortedSwatches() {
-  return [...state.swatches].sort((a, b) => {
-    const A = hsl(a.hex), B = hsl(b.hex);
-    const na = A.c < 0.1, nb = B.c < 0.1;
-    if (na !== nb) return na ? 1 : -1;
-    if (na) return B.l - A.l;
-    const fa = Math.round(A.h / 14), fb = Math.round(B.h / 14);
-    if (fa !== fb) return fa - fb;
-    return B.l - A.l;
+  const band = t => Math.floor(((t.h - HUE_START + 360) % 360) / HUE_BAND);
+  const earthBand = t => Math.floor(((t.h - EARTH_HUE[0] + 360) % 360) / EARTH_BAND);
+  return [...state.swatches].sort((x, y) => {
+    const A = oklch(x.hex), B = oklch(y.hex);
+    const ta = colourTier(A), tb = colourTier(B);
+    if (ta !== tb) return ta - tb;
+
+    /* Neutrals have no hue worth reading — a plain run from white to black. */
+    if (ta === 2) return B.L - A.L;
+
+    /* Earths keep their hue but band twice as wide, because at this chroma hue
+       is a weaker signal and the useful grouping is coarse: pinks, then
+       peaches, then tans. Light to dark inside each. */
+    if (ta === 1) {
+      const ea = earthBand(A), eb = earthBand(B);
+      return ea !== eb ? ea - eb : B.L - A.L;
+    }
+
+    const ba = band(A), bb = band(B);
+    if (ba !== bb) return ba - bb;
+    return B.C - A.C || B.L - A.L;
   });
 }
 const swatchStock = sw => state.spools.filter(s => s.swatchId === sw.id && !inReorder(s.id)).length;
@@ -2170,6 +2282,548 @@ function renderSwatches() {
     list.length ? `${list.length} colours · ${owned} in stock` : "";
 }
 
+/* ================= reading a colour off the camera =================
+   The library does not have every filament ever made, so the fallback is to
+   point the phone at the spool and read the colour off it directly.
+
+   The live preview, deliberately, and not a captured photo. A phone's photo
+   pipeline — HDR merge, scene optimisation, saturation — exists to make
+   pictures look good, and it moves colours far enough to make the reading
+   worthless. Preview frames skip most of that, which is why what you see in
+   the viewfinder matches the spool in your hand.
+
+   It is also the only way to get the flash. Torch is a constraint on a live
+   camera track; there is no way to arm the camera app's flash from a page. */
+
+/* camera-thin, from SVG Repo. Drawn as filled outlines rather than strokes, so
+   it takes currentColor as a fill and the button's hover colour carries. */
+const CAMERA_ICON = `<svg viewBox="0 0 256 256" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M208,60H178.13477l-14.8125-22.21875A3.99853,3.99853,0,0,0,159.99414,36h-64A3.9985,3.9985,0,0,0,92.666,37.78125L77.85352,60H48A20.02229,20.02229,0,0,0,28,80V192a20.02229,20.02229,0,0,0,20,20H208a20.02229,20.02229,0,0,0,20-20V80A20.02229,20.02229,0,0,0,208,60Zm12,132a12.01312,12.01312,0,0,1-12,12H48a12.01312,12.01312,0,0,1-12-12V80A12.01312,12.01312,0,0,1,48,68H79.99414a3.99853,3.99853,0,0,0,3.32813-1.78125L98.13477,44h59.71875L172.666,66.21875A3.9985,3.9985,0,0,0,175.99414,68H208a12.01312,12.01312,0,0,1,12,12ZM128,92a40,40,0,1,0,40,40A40.04584,40.04584,0,0,0,128,92Zm0,72a32,32,0,1,1,32-32A32.03667,32.03667,0,0,1,128,164Z"/></svg>`;
+
+/* The body colour of a patch of pixels, as #RRGGBB.
+ *
+ * Not a mean. The torch leaves a specular highlight on glossy filament that is
+ * nearly white, and any patch big enough to be steady also catches shadow at
+ * the edge of the winding. Averaging everything drags the answer toward both
+ * and returns a washed-out version of the colour.
+ *
+ * So the pixels are ranked by luminance and only the middle half is averaged.
+ * The band is symmetric on purpose: trimming more from one end than the other
+ * would bias every reading that way, which is its own kind of colour shift.
+ * On an evenly lit patch every pixel is alike and this returns it exactly. */
+/* ---------------- hex ⇄ hue, saturation, value ----------------
+   The wheel is polar and the app stores hex, so every interaction crosses this
+   pair. Value is kept separate from the disc: hue and saturation are where you
+   are on the wheel, brightness is how far the light is turned up. */
+function hexToHsv(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d) {
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+    else if (max === g) h = ((b - r) / d + 2) * 60;
+    else h = ((r - g) / d + 4) * 60;
+  }
+  return { h, s: max ? d / max : 0, v: max };
+}
+
+function hsvToHex(h, s, v) {
+  const f = n => {
+    const k = (n + h / 60) % 6;
+    return Math.round(255 * (v - v * s * Math.max(0, Math.min(k, 4 - k, 1))));
+  };
+  const pair = x => x.toString(16).padStart(2, "0");
+  return ("#" + pair(f(5)) + pair(f(3)) + pair(f(1))).toUpperCase();
+}
+
+/* A hue wheel with a brightness slider, opened on whatever colour is already
+   chosen. Built as its own scrim for the same reason the sampler is: modal()
+   would close the swatch sheet and take the half-filled form with it. */
+function openWheel(startHex, onPick) {
+  let { h, s, v } = hexToHsv(startHex);
+
+  const scrim = document.createElement("div");
+  scrim.className = "scrim sampler";
+  scrim.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">
+    <h2>Pick a colour</h2>
+    <div class="wheel" id="cw-wheel">
+      <div class="cw-layer cw-hue"></div><div class="cw-layer cw-sat"></div>
+      <div class="cw-layer cw-shade" id="cw-shade"></div>
+      <div class="cw-dot" id="cw-dot"></div>
+    </div>
+    <input type="range" id="cw-val" min="0" max="100" value="${Math.round(v * 100)}"
+      style="width:100%;margin-top:14px" aria-label="Brightness">
+    <div class="readout">
+      <span class="chip" id="cw-chip"></span>
+      <span class="hexcode" id="cw-hex"></span>
+    </div>
+    <div class="sheet-foot"><span class="spacer"></span>
+      <button class="btn ghost" id="cw-cancel">Cancel</button>
+      <button class="btn primary" id="cw-use">Use this colour</button></div>
+  </div>`;
+  document.body.appendChild(scrim);
+
+  const wheel = scrim.querySelector("#cw-wheel");
+  const dot = scrim.querySelector("#cw-dot");
+  const shade = scrim.querySelector("#cw-shade");
+  const chip = scrim.querySelector("#cw-chip");
+  const hexEl = scrim.querySelector("#cw-hex");
+  const valEl = scrim.querySelector("#cw-val");
+
+  function paint() {
+    const hex = hsvToHex(h, s, v);
+    /* The disc always shows full-brightness hues; darkening is an overlay, so
+       the dot stays visible instead of vanishing into a black wheel. */
+    shade.style.opacity = String(1 - v);
+    /* Twelve o'clock is hue 0 and it runs clockwise, matching the gradient. */
+    const rad = (h * Math.PI) / 180;
+    dot.style.left = `${50 + Math.sin(rad) * s * 50}%`;
+    dot.style.top = `${50 - Math.cos(rad) * s * 50}%`;
+    dot.style.background = hex;
+    chip.style.background = hex;
+    hexEl.textContent = hex;
+  }
+
+  function pickAt(clientX, clientY) {
+    const box = wheel.getBoundingClientRect();
+    const dx = clientX - (box.left + box.width / 2);
+    const dy = clientY - (box.top + box.height / 2);
+    const radius = box.width / 2;
+    s = Math.min(1, Math.hypot(dx, dy) / radius);
+    /* atan2(dx, -dy) measures clockwise from twelve o'clock rather than
+       anticlockwise from three, which is the convention the gradient uses. */
+    h = (Math.atan2(dx, -dy) * 180) / Math.PI;
+    if (h < 0) h += 360;
+    paint();
+  }
+
+  let dragging = false;
+  wheel.addEventListener("pointerdown", e => {
+    dragging = true;
+    wheel.setPointerCapture(e.pointerId);
+    pickAt(e.clientX, e.clientY);
+  });
+  wheel.addEventListener("pointermove", e => { if (dragging) pickAt(e.clientX, e.clientY); });
+  const drop = () => { dragging = false; };
+  wheel.addEventListener("pointerup", drop);
+  wheel.addEventListener("pointercancel", drop);
+  valEl.oninput = () => { v = Number(valEl.value) / 100; paint(); };
+
+  const shut = () => {
+    scrim.remove();
+    document.removeEventListener("keydown", onKey, true);
+  };
+  const onKey = e => { if (e.key === "Escape") { e.stopPropagation(); shut(); } };
+  document.addEventListener("keydown", onKey, true);
+  scrim.addEventListener("pointerdown", e => { if (e.target === scrim) shut(); });
+  scrim.querySelector("#cw-cancel").onclick = shut;
+  scrim.querySelector("#cw-use").onclick = () => { onPick(hsvToHex(h, s, v)); shut(); };
+
+  paint();
+}
+
+/* Shifts a colour along the warm–cool axis — the correction you would apply if
+ * the light were bluer or oranger than the camera took it for. Positive warms,
+ * negative cools.
+ *
+ * Green is deliberately left alone. An illuminant shift is overwhelmingly a
+ * red/blue trade; moving green as well stops being a white balance and starts
+ * being a tint, which is how a reading ends up further from the spool than it
+ * started. */
+function warmShift(hex, amount) {
+  if (!hex || !amount) return hex;
+  const k = amount / 250;
+  const channel = i => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16);
+  const pair = v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0");
+  return ("#" + pair(channel(0) * (1 + k)) + pair(channel(1)) + pair(channel(2) * (1 - k))).toUpperCase();
+}
+
+function bodyHex(data) {
+  const ranked = [];
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 128) continue;   /* transparent — not part of the picture */
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    ranked.push([0.2126 * r + 0.7152 * g + 0.0722 * b, r, g, b]);
+  }
+  if (!ranked.length) return null;
+  ranked.sort((a, b) => a[0] - b[0]);
+
+  const lo = Math.floor(ranked.length * 0.25);
+  const hi = Math.max(lo + 1, Math.ceil(ranked.length * 0.75));
+  let r = 0, g = 0, b = 0;
+  for (let i = lo; i < hi; i++) { r += ranked[i][1]; g += ranked[i][2]; b += ranked[i][3]; }
+
+  const n = hi - lo;
+  const pair = v => Math.round(v / n).toString(16).padStart(2, "0");
+  return ("#" + pair(r) + pair(g) + pair(b)).toUpperCase();
+}
+
+/* Opens the back camera and hands the sampler a live stream.
+ *
+ * Falls back to whatever `pickPhoto` does when there is no camera or the
+ * permission is refused — on a desktop that is the only route, and on a phone
+ * it still allows a picture taken earlier. */
+async function sampleColour(onPick, pickPhoto) {
+  const media = navigator.mediaDevices;
+  if (media && media.getUserMedia) {
+    try {
+      const stream = await media.getUserMedia({
+        /* `ideal`, not `exact`: a laptop with only a front camera should still
+           open rather than throw. */
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
+      });
+      openSampler({ stream }, onPick);
+      return;
+    } catch (e) { /* refused, or nothing to open — fall through to a photo */ }
+  }
+  pickPhoto();
+}
+
+/* The picture, a square you drive over it, and the colour under that square.
+ *
+ * Opened over the swatch sheet rather than replacing it — modal() would close
+ * the form and lose whatever had been typed in — so this builds its own scrim
+ * and takes itself down again. */
+async function openSampler(source, onPick) {
+  const live = !!source.stream;
+  let video = null, track = null;
+
+  if (live) {
+    track = source.stream.getVideoTracks()[0];
+    video = document.createElement("video");
+    video.playsInline = true; video.muted = true; video.autoplay = true;
+    video.srcObject = source.stream;
+    try { await video.play(); } catch (e) { /* autoplay of a muted stream is allowed */ }
+    /* videoWidth stays 0 until the first frame lands. */
+    if (!video.videoWidth) {
+      await new Promise(done => video.addEventListener("loadedmetadata", done, { once: true }));
+    }
+  }
+
+  const srcW = live ? video.videoWidth : source.photo.width;
+  const srcH = live ? video.videoHeight : source.photo.height;
+  if (!srcW || !srcH) { toast("The camera didn't return a picture."); return; }
+
+  /* The frame at full resolution, off screen. Every reading is taken from here,
+     so zooming changes how much of it the square covers and never the pixels. */
+  const full = document.createElement("canvas");
+  full.width = srcW; full.height = srcH;
+  const fullCtx = full.getContext("2d", { willReadFrequently: true });
+  if (!live) fullCtx.drawImage(source.photo, 0, 0);
+
+  const torchable = !!(track && track.getCapabilities && track.getCapabilities().torch);
+
+  const scrim = document.createElement("div");
+  scrim.className = "scrim sampler";
+  scrim.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">
+    <h2>Read the colour</h2>
+    <p class="empty-note" style="margin:0 0 10px">${live
+      ? "Hold the square over the filament, away from the shine and the edge of the winding. Drag and zoom to place it."
+      : "Drag to move the picture and pinch or slide to zoom. Put the square on the filament itself."}</p>
+    <div class="stage" id="cs-stage"><canvas id="cs-canvas"></canvas><div class="reticle"></div></div>
+    <input type="range" id="cs-zoom" min="0" max="100" value="0" style="width:100%;margin-top:11px" aria-label="Zoom">
+    <div class="tuning" id="cs-tune"></div>
+    <div class="readout">
+      <span class="chip" id="cs-chip"></span>
+      <span class="hexcode" id="cs-hex">—</span>
+      <span style="flex:1"></span>
+      ${torchable ? `<button class="btn ghost tiny" id="cs-torch" aria-pressed="false">Flash off</button>` : ""}
+    </div>
+    <div class="sheet-foot"><span class="spacer"></span>
+      <button class="btn ghost" id="cs-cancel">Cancel</button>
+      <button class="btn primary" id="cs-use">Use this colour</button></div>
+  </div>`;
+  document.body.appendChild(scrim);
+
+  const stage = scrim.querySelector("#cs-stage");
+  const canvas = scrim.querySelector("#cs-canvas");
+  const ctx = canvas.getContext("2d");
+  const chip = scrim.querySelector("#cs-chip");
+  const hexEl = scrim.querySelector("#cs-hex");
+  const zoomEl = scrim.querySelector("#cs-zoom");
+  const RETICLE = 58;   /* the square's side in CSS pixels — matches .reticle */
+
+  let stageW = 0, stageH = 0, dpr = 1;
+  let fit = 1, scale = 1;
+  let cx = srcW / 2, cy = srcH / 2;   /* the frame point under the square */
+  let hex = null;
+  let warmth = 0;          /* manual white balance, when the camera won't do one */
+  let sensorWarmth = true;  /* until the camera is caught ignoring a colour temperature */
+
+  const maxScale = () => fit * 14;
+
+  function measure() {
+    const box = stage.getBoundingClientRect();
+    if (!box.width) return;
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    stageW = box.width; stageH = box.height;
+    canvas.width = Math.round(stageW * dpr);
+    canvas.height = Math.round(stageH * dpr);
+    fit = Math.min(stageW / srcW, stageH / srcH);
+    if (scale < fit) scale = fit;
+    draw();
+  }
+
+  function draw() {
+    scale = Math.max(fit, Math.min(maxScale(), scale));
+    cx = Math.max(0, Math.min(srcW, cx));
+    cy = Math.max(0, Math.min(srcH, cy));
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, stageW, stageH);
+    /* Smoothing invents colours between pixels, which is the one thing this
+       must not do once you are zoomed in far enough to care. */
+    ctx.imageSmoothingEnabled = scale < 1;
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr,
+      (stageW / 2 - cx * scale) * dpr, (stageH / 2 - cy * scale) * dpr);
+    ctx.drawImage(full, 0, 0);
+
+    readPatch();
+    zoomEl.value = String(Math.round((scale - fit) / (maxScale() - fit) * 100));
+  }
+
+  /* The square never moves, so in the frame it is a square of RETICLE / scale
+     centred on (cx, cy) — zoom in and it reads a smaller, more exact patch. */
+  function readPatch() {
+    const side = Math.max(1, Math.round(RETICLE / scale));
+    const x = Math.max(0, Math.min(srcW - 1, Math.round(cx - side / 2)));
+    const y = Math.max(0, Math.min(srcH - 1, Math.round(cy - side / 2)));
+    const w = Math.min(side, srcW - x);
+    const h = Math.min(side, srcH - y);
+    const read = w > 0 && h > 0 ? bodyHex(fullCtx.getImageData(x, y, w, h).data) : null;
+    hex = warmShift(read, warmth);
+    hexEl.textContent = hex || "—";
+    chip.style.background = hex || "transparent";
+  }
+
+  /* A live camera has to be pulled frame by frame; a photo is drawn once. */
+  let frameLoop = 0;
+  if (live) {
+    const pump = () => {
+      if (video.readyState >= 2) { fullCtx.drawImage(video, 0, 0, srcW, srcH); draw(); }
+      frameLoop = requestAnimationFrame(pump);
+    };
+    frameLoop = requestAnimationFrame(pump);
+  }
+
+  /* --- driving it: one finger pans, two pinch, a wheel or the slider zooms --- */
+  const touches = new Map();
+  let pinch = null;
+  const spread = () => {
+    const [a, b] = [...touches.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+
+  stage.addEventListener("pointerdown", e => {
+    stage.setPointerCapture(e.pointerId);
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.size === 2) pinch = { spread: spread(), scale };
+  });
+  stage.addEventListener("pointermove", e => {
+    const p = touches.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (touches.size === 1) { cx -= dx / scale; cy -= dy / scale; draw(); }
+    else if (pinch && pinch.spread > 0) { scale = pinch.scale * (spread() / pinch.spread); draw(); }
+  });
+  const lift = e => { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; };
+  stage.addEventListener("pointerup", lift);
+  stage.addEventListener("pointercancel", lift);
+  stage.addEventListener("wheel", e => {
+    e.preventDefault();
+    scale *= e.deltaY < 0 ? 1.12 : 1 / 1.12;
+    draw();
+  }, { passive: false });
+  zoomEl.oninput = () => {
+    scale = fit + (maxScale() - fit) * (Number(zoomEl.value) / 100);
+    draw();
+  };
+
+  /* --- what the camera itself will let us change ---
+     These drive the sensor, so the frames arrive already different; nothing is
+     painted over the picture afterwards. That distinction matters, because a
+     correction applied to the reading would only be calibrated to whichever
+     screen it was eyeballed on.
+
+     Which of them exist is entirely up to the device. Chrome reports whatever
+     the camera reports and plenty of phones offer none of it, so every control
+     here is drawn from getCapabilities() rather than assumed. */
+  const tune = scrim.querySelector("#cs-tune");
+  const caps = live && track.getCapabilities ? track.getCapabilities() : {};
+  const now = live && track.getSettings ? track.getSettings() : {};
+  const usable = key => caps[key] && typeof caps[key].min === "number" && caps[key].max > caps[key].min;
+  /* Which controls a phone offers is unknowable from here, and the answer
+     decides whether warmth reaches the sensor. Readable over adb with:
+       adb logcat | grep 'filament camera' */
+  if (live) console.log("filament camera capabilities", JSON.stringify(caps), JSON.stringify(now));
+
+  /* Cameras do not agree on what these are called, so each control names the
+     capabilities that would serve it and takes the first one on offer. A
+     CPH2663, for instance, reports no brightness at all but does report
+     exposureCompensation, which is the same knob under another name.
+
+     Auto white balance is the single biggest reason two looks at the same
+     spool disagree, so warmth is worth more than the rest put together. */
+  const CONTROLS = [
+    ["Brightness", ["brightness", "exposureCompensation"]],
+    ["Saturation", ["saturation"]],
+    ["Contrast", ["contrast"]],
+    ["Warmth", ["colorTemperature"]],
+  ];
+  const rows = CONTROLS
+    .map(([label, candidates]) => [label, candidates.find(usable)])
+    .filter(([, key]) => key);
+
+  const show = (v, step) => (step < 1 ? v.toFixed(1) : String(Math.round(v)));
+  const slider = (key, label, min, max, step, value) =>
+    `<label><span>${label}</span>
+      <input type="range" data-tune="${key}" min="${min}" max="${max}" step="${step}" value="${value}">
+      <span class="val" id="cs-v-${key}">${show(value, step)}</span></label>`;
+
+  /* What was set last time wins: it was chosen for this bench under this light,
+     which is worth more than whatever the camera happens to have settled on
+     when the sheet opened. */
+  const saved = state.camera || {};
+  const startAt = (key, c) => {
+    if (typeof saved[key] === "number" && saved[key] >= c.min && saved[key] <= c.max) return saved[key];
+    /* Only trust the camera's own reading when it is inside its own range. On
+       automatic white balance this phone reports colorTemperature 0 — outside
+       the 2850 it claims as a minimum — and initialising from that leaves the
+       slider pinned at one end with a different number beside it. */
+    const cur = now[key];
+    return typeof cur === "number" && cur >= c.min && cur <= c.max ? cur : (c.min + c.max) / 2;
+  };
+
+  tune.innerHTML = rows.map(([label, key]) => {
+    const c = caps[key];
+    return slider(key, label, c.min, c.max, c.step || 1, startAt(key, c));
+  }).join("");
+
+  /* Warmth always exists, whoever ends up doing the work. If the camera will
+     take a colour temperature it is applied at the sensor, which is better —
+     the frames arrive corrected. If it will not, the same control corrects the
+     reading instead. That is a weaker thing, and it is why the preview keeps
+     looking as it did while the chip moves: the chip is the answer, the stage
+     is only the camera talking. */
+  if (!rows.some(([, key]) => key === "colorTemperature")) {
+    const start = typeof saved.warmth === "number" ? saved.warmth : 0;
+    warmth = start;
+    tune.insertAdjacentHTML("beforeend", slider("warmth", "Warmth", -100, 100, 1, start));
+  }
+
+  /* Remembered per control rather than as one blob, so a camera that later
+     stops offering something does not drag a stale value along with it. */
+  const remember = (key, value) => {
+    state.camera = Object.assign({}, state.camera, { [key]: value });
+    save();
+  };
+
+  tune.querySelectorAll("[data-tune]").forEach(el => {
+    el.oninput = async () => {
+      const key = el.dataset.tune;
+      const value = Number(el.value);
+      scrim.querySelector("#cs-v-" + key).textContent = show(value, Number(el.step) || 1);
+      remember(key, value);
+
+      if (key === "warmth") { warmth = value; draw(); return; }
+
+      if (key === "colorTemperature") { await setWarmth(value, el); return; }
+
+      try { await track.applyConstraints({ advanced: [{ [key]: value }] }); }
+      catch (e) { /* the camera declined it; the slider simply does nothing */ }
+    };
+  });
+
+  /* Put the remembered settings back on the sensor. Without this the sliders
+     would show the right numbers while the camera ran on its own defaults. */
+  if (live) {
+    for (const [, key] of rows) {
+      const value = Number(scrim.querySelector(`[data-tune="${key}"]`).value);
+      if (key === "colorTemperature") setWarmth(value, scrim.querySelector(`[data-tune="${key}"]`));
+      else track.applyConstraints({ advanced: [{ [key]: value }] }).catch(() => {});
+    }
+  }
+
+  /* Asking the sensor for a colour temperature, and checking it actually took.
+   *
+   * Two ways this fails without throwing. `advanced` constraint sets are
+   * dropped whole when they cannot be satisfied, so pairing the temperature
+   * with whiteBalanceMode loses both if manual mode is unsupported — hence two
+   * separate calls. And plenty of Android cameras list colorTemperature in
+   * getCapabilities() and then ignore it on a video track, reporting success.
+   *
+   * So the only trustworthy answer is to read the setting back. When the camera
+   * has not moved, the slider stops asking and starts correcting the reading
+   * instead — the weaker fix, but a working one, and it says so once. */
+  async function setWarmth(kelvin, el) {
+    const cap = caps.colorTemperature;
+    const mid = (cap.min + cap.max) / 2;
+    const asOffset = () => ((kelvin - mid) / (cap.max - mid)) * 100;
+
+    if (!sensorWarmth) { warmth = asOffset(); draw(); return; }
+
+    try {
+      await track.applyConstraints({ advanced: [{ whiteBalanceMode: "manual" }] });
+      await track.applyConstraints({ advanced: [{ colorTemperature: kelvin }] });
+      const got = track.getSettings().colorTemperature;
+      const slack = (cap.step || 1) * 2;
+      console.log("filament camera warmth", JSON.stringify({
+        asked: kelvin, got, mode: track.getSettings().whiteBalanceMode,
+      }));
+      if (typeof got !== "number" || Math.abs(got - kelvin) > slack) throw new Error("ignored");
+    } catch (e) {
+      console.log("filament camera warmth fell back to the reading:", String(e && e.message || e));
+      sensorWarmth = false;
+      warmth = asOffset();
+      draw();
+      el.parentElement.querySelector("span").textContent = "Warmth˚";   /* ˚: not the sensor doing it */
+      toast("This camera ignores white balance — warmth is being applied to the reading instead.");
+    }
+  }
+
+  /* --- the flash --- */
+  const torchBtn = scrim.querySelector("#cs-torch");
+  if (torchBtn) {
+    let lit = false;
+    torchBtn.onclick = async () => {
+      try {
+        await track.applyConstraints({ advanced: [{ torch: !lit }] });
+        lit = !lit;
+        torchBtn.textContent = lit ? "Flash on" : "Flash off";
+        torchBtn.setAttribute("aria-pressed", String(lit));
+      } catch (e) { toast("This camera won't let the flash be switched on."); }
+    };
+  }
+
+  /* --- leaving --- */
+  const shut = () => {
+    cancelAnimationFrame(frameLoop);
+    /* Releasing the track is what turns the camera light off. Skipping it
+       leaves the phone recording behind a closed sheet. */
+    if (source.stream) source.stream.getTracks().forEach(t => t.stop());
+    if (source.photo && source.photo.close) source.photo.close();
+    scrim.remove();
+    window.removeEventListener("resize", measure);
+    document.removeEventListener("keydown", onKey, true);
+  };
+  /* Capture phase, so Escape closes this and not the swatch sheet underneath —
+     the app's own Escape handler removes #scrim, which is that sheet. */
+  const onKey = e => { if (e.key === "Escape") { e.stopPropagation(); shut(); } };
+  document.addEventListener("keydown", onKey, true);
+  window.addEventListener("resize", measure);
+  scrim.addEventListener("pointerdown", e => { if (e.target === scrim) shut(); });
+  scrim.querySelector("#cs-cancel").onclick = shut;
+  scrim.querySelector("#cs-use").onclick = () => {
+    if (!hex) { toast("Move the square onto the filament first."); return; }
+    onPick(hex);
+    shut();
+  };
+
+  requestAnimationFrame(measure);
+}
+
 function swatchForm(existing, onCreate) {
   const sw = existing || { brand: "", material: "PLA", colorName: "", hex: "#3E7BD1" };
   const n = existing ? swatchStock(existing) : 0;
@@ -2188,8 +2842,11 @@ function swatchForm(existing, onCreate) {
     </div>
     <div class="field"><label>Hex</label>
       <div class="swatchrow">
-        <input type="color" id="w-hex" value="${esc(sw.hex)}">
+        <button type="button" class="chipbtn" id="w-hex" style="background:${esc(sw.hex)}"
+          title="Pick a colour" aria-label="Pick a colour"></button>
         <input type="text" id="w-code" class="mono" value="${esc(sw.hex.toUpperCase())}" maxlength="7" spellcheck="false" placeholder="#RRGGBB">
+        <button class="iconbtn" id="w-cam" title="Read the colour off a photo" aria-label="Read the colour off a photo">${CAMERA_ICON}</button>
+        <input type="file" id="w-shot" accept="image/*" capture="environment" hidden>
       </div>
       <div class="linkrow">
         <a class="btn ghost tiny linkbtn" id="w-lib" href="#" target="_blank" rel="noopener noreferrer">Find it in the library ↗</a>
@@ -2210,9 +2867,33 @@ function swatchForm(existing, onCreate) {
       if (/^[0-9a-f]{3}$/i.test(x)) x = x.split("").map(c => c + c).join("");
       return /^[0-9a-f]{6}$/i.test(x) ? "#" + x.toUpperCase() : null;
     };
-    picker.oninput = () => { code.value = picker.value.toUpperCase(); };
-    code.oninput = () => { const c = clean(code.value); if (c) picker.value = c; };
-    code.onblur = () => { code.value = clean(code.value) || picker.value.toUpperCase(); };
+    /* The chip is the current colour and the field is the same thing spelled
+       out; whichever moves, this is what keeps the two in step. */
+    let current = clean(sw.hex) || "#3E7BD1";
+    const setHex = next => {
+      current = next;
+      picker.style.background = next;
+      code.value = next;
+    };
+    picker.onclick = () => openWheel(current, setHex);
+    code.oninput = () => { const c = clean(code.value); if (c) { current = c; picker.style.background = c; } };
+    code.onblur = () => setHex(clean(code.value) || current);
+
+    /* Straight to the live camera. The file input is only the fallback for when
+       there is no camera to open — a desktop, or a refused permission — and it
+       doubles as a way to use a picture taken earlier. */
+    const shot = scrim.querySelector("#w-shot");
+    const apply = setHex;
+    scrim.querySelector("#w-cam").onclick = () => sampleColour(apply, () => shot.click());
+    shot.onchange = async () => {
+      const file = shot.files && shot.files[0];
+      shot.value = "";   /* so the same picture can be reused without reopening the form */
+      if (!file) return;
+      try {
+        /* from-image so a portrait shot is not laid on its side. */
+        openSampler({ photo: await createImageBitmap(file, { imageOrientation: "from-image" }) }, apply);
+      } catch (e) { toast("That picture couldn't be read."); }
+    };
     /* filamentcolors.xyz takes a text search and a manufacturer slug:
        /library/?f=white%20jade&mfr=bambu-lab */
     const lib = scrim.querySelector("#w-lib");
@@ -2230,7 +2911,7 @@ function swatchForm(existing, onCreate) {
     nameEl.oninput = syncLink;
     syncLink();
     scrim.querySelector("#w-find").onclick = () => {
-      const hex = clean(code.value) || picker.value.toUpperCase();
+      const hex = clean(code.value) || current;
       try {
         navigator.clipboard.writeText(hex);
         toast(`${hex} copied — paste it into Color Match.`);
@@ -2240,7 +2921,7 @@ function swatchForm(existing, onCreate) {
       brand: scrim.querySelector("#w-brand").value.trim() || "Unbranded",
       material: scrim.querySelector("#w-mat").value,
       colorName: scrim.querySelector("#w-name").value.trim() || "Unnamed",
-      hex: clean(code.value) || picker.value.toUpperCase(),
+      hex: clean(code.value) || current,
     });
     scrim.querySelector("#w-save").onclick = () => {
       const data = read();
