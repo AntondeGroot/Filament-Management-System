@@ -18,7 +18,22 @@
 import { JSDOM } from "jsdom";
 import { readFileSync } from "node:fs";
 
+import * as batch from "../src/batch.js";
+import * as colour from "../src/colour.js";
+import * as drying from "../src/drying.js";
+import * as mesh from "../src/mesh.js";
+import * as polymaker from "../src/polymaker.js";
+
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+
+/* index.html hands its modules to the classic script through globals, using a
+ * <script type="module"> block. JSDOM does not implement module scripts at all,
+ * so it never runs that block and the app boots with every one of them missing.
+ *
+ * The same handover is performed here instead, from Node's own imports. It has
+ * to happen in beforeParse: the inline script runs during construction and
+ * reaches for these while rendering the first frame. */
+const MODULES = { Batch: batch, Colour: colour, Drying: drying, Mesh: mesh, Polymaker: polymaker };
 
 /* Boots a fresh copy of the app.
  *
@@ -26,7 +41,11 @@ const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
  * branches on whether 09:00 has already passed today, so a test written against
  * the real clock would pass all morning and fail all afternoon. */
 export async function openApp({ now } = {}) {
-  const dom = new JSDOM(html, { runScripts: "dangerously", url: "http://localhost/" });
+  const dom = new JSDOM(html, {
+    runScripts: "dangerously",
+    url: "http://localhost/",
+    beforeParse: window => Object.assign(window, MODULES),
+  });
   const run = code => dom.window.eval(code);
 
   /* load() is async and finishes after the script itself returns. Nothing in it
