@@ -8,7 +8,7 @@ dried, which colours you own, and what each project used.
 | | |
 |---|---|
 | `index.html` | the whole app — markup, styles and logic |
-| `sw.js` | service worker: offline shell + the background drying check |
+| `service-worker.js` | offline shell + the background drying check |
 | `manifest.webmanifest` | makes it installable to the Android home screen |
 | `icon-*.png` | launcher icons, for the home screen and the APK alike |
 | `capacitor.config.ts`, `android/` | the Android shell — see [Building the APK](#building-the-apk) |

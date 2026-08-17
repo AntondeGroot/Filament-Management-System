@@ -14,7 +14,7 @@ const CACHE = "filament-manager-v1";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png",
   /* Modules index.html imports. Missing one means the app opens offline and
      then fails the moment that part of it is reached. */
-  "./src/mesh.js"];
+  "./src/mesh.js", "./src/drying.js", "./src/polymaker.js"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

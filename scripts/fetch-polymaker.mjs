@@ -62,19 +62,19 @@ for (const entry of entries) {
 }
 lines.push(line.trimEnd().replace(/,$/, ""));
 
-const file = join(ROOT, "index.html");
+const file = join(ROOT, "src/polymaker.js");
 const before = await readFile(file, "utf8");
 
 /* Track the match rather than comparing the result: an unchanged wiki produces
    byte-identical output, and that is a success, not a failed substitution. */
 let replaced = false;
 const after = before.replace(
-  /(const POLYMAKER_HEX = \{\n)[\s\S]*?(\n\};)/,
+  /(export const POLYMAKER_HEX = \{\n)[\s\S]*?(\n\};)/,
   (_, open, close) => { replaced = true; return open + lines.join("\n") + close; },
 );
-if (!replaced) throw new Error("could not find the POLYMAKER_HEX block in index.html");
+if (!replaced) throw new Error("could not find the POLYMAKER_HEX block in src/polymaker.js");
 
 await writeFile(file, after);
 console.log(after === before
   ? `${colours.size} colours, unchanged since the last run`
-  : `wrote ${colours.size} colours into index.html`);
+  : `wrote ${colours.size} colours into src/polymaker.js`);
