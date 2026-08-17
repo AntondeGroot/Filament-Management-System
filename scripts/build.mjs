@@ -20,7 +20,7 @@ const OUT = join(ROOT, "dist");
    stray file in the repo root can never end up shipped inside the APK. */
 const FILES = [
   "index.html",
-  "sw.js",
+  "service-worker.js",
   "manifest.webmanifest",
   "icon-192.png",
   "icon-512.png",

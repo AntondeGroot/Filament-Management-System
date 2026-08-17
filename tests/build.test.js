@@ -39,8 +39,8 @@ describe("scripts/build.mjs", () => {
       "icon-512.png",
       "index.html",
       "manifest.webmanifest",
+      "service-worker.js",
       "src",
-      "sw.js",
     ]);
 
     /* index.html imports from src/, so an empty one ships an app that opens and
