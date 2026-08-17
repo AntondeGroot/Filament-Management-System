@@ -112,6 +112,13 @@ button{font:inherit;color:inherit;cursor:pointer}
        background:none;border:1px solid var(--rule);border-radius:3px;color:var(--ink-soft);cursor:pointer}
 .umove .n{font-family:var(--mono);font-size:12px;font-weight:600;line-height:1}
 .umove:hover{border-color:var(--ink);color:var(--ink)}
+.umove.armed{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+/* Shown only while a move is armed, so a row is not permanently outlined. The
+   offset keeps the dashes off the card's own edge, which already carries a
+   shadow. */
+.spool.in-batch{outline:1.5px dashed var(--ink);outline-offset:3px}
+.unit.machine .umove.armed{background:#EDECE8;color:var(--machine);border-color:#EDECE8}
+.zone-move{margin-left:8px}
 .unit.machine .umove{border-color:#4A525C;color:#8A9099}
 .unit.machine .umove:hover{border-color:#EDECE8;color:#EDECE8}
 .unit.dryer .umove{border-color:#A5A198;color:#57534A}
@@ -444,12 +451,12 @@ body.dragging{cursor:grabbing;user-select:none}
     <div id="bench-sections"></div>
 
     <div class="section">
-      <div class="section-head"><div class="eyebrow">Unassigned</div><div class="hair"></div><div class="meta" id="spares-meta"></div></div>
+      <div class="section-head"><div class="eyebrow">Unassigned</div><div class="hair"></div><div class="meta" id="spares-meta"></div><span id="spares-move"></span></div>
       <div class="reorder spares" data-drop="spares"><div class="row" id="spares-row"></div></div>
     </div>
 
     <div class="section">
-      <div class="section-head"><div class="eyebrow">Reorder</div><div class="hair"></div><div class="meta" id="reorder-meta"></div></div>
+      <div class="section-head"><div class="eyebrow">Reorder</div><div class="hair"></div><div class="meta" id="reorder-meta"></div><span id="reorder-move"></span></div>
       <div class="reorder" data-drop="reorder"><div class="row" id="reorder-row"></div></div>
     </div>
   </div>
@@ -531,9 +538,13 @@ body.dragging{cursor:grabbing;user-select:none}
   import * as mesh from "./src/mesh.js";
   import * as drying from "./src/drying.js";
   import * as polymaker from "./src/polymaker.js";
+  import * as batch from "./src/batch.js";
+  import * as colour from "./src/colour.js";
   window.Mesh = mesh;
   window.Drying = drying;
   window.Polymaker = polymaker;
+  window.Batch = batch;
+  window.Colour = colour;
 </script>
 
 <script>
@@ -991,34 +1002,25 @@ function unitHTML(u) {
       <span class="unit-name">${esc(u.name)}</span>
       <span class="count">${used}/${u.slots.length}</span>
       ${u.kind === "dryer" && dryingOn() ? `<button class="btn ghost tiny" data-cycle="${u.id}">Mark as dried</button>` : ""}
-      ${used ? `<button class="umove" data-umove="${u.id}"
-        title="Drag to move these ${used} spool${used === 1 ? "" : "s"}, or tap to choose where"
-        aria-label="Move ${used} spool${used === 1 ? "" : "s"}">
+      ${used ? (() => { const take = Math.min(used, Batch.BATCH_SIZE); return `<button
+        class="umove${armed({ unitId: u.id }) ? " armed" : ""}" data-umove="${u.id}"
+        title="${esc(Batch.batchLabel(take))} — tap to show which, then drag them or tap again for a list"
+        aria-label="${esc(Batch.batchLabel(take))}">
         <svg viewBox="0 0 12 12" width="13" height="13" aria-hidden="true">
           <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
           <circle cx="6" cy="6" r="1.6" fill="currentColor"/>
-        </svg><span class="n">${used}</span>
+        </svg><span class="n">${take}</span>
         <svg viewBox="0 0 8 14" width="8" height="14" aria-hidden="true">
           <path d="M4 1.2v11.6M4 1.2 1.7 3.8M4 1.2l2.3 2.6M4 12.8l-2.3-2.6M4 12.8l2.3-2.6"
                 fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-      </button>` : ""}
+      </button>`; })() : ""}
     </div>
     ${body}${foot}
   </div>`;
 }
 
 /* Identical rolls in a loose zone read as one pile with a count. */
-function stacks(ids) {
-  const out = [], seen = new Map();
-  ids.forEach(id => {
-    const s = spool(id);
-    const k = [s.swatchId, s.low, s.sealed].join("|");
-    if (seen.has(k)) seen.get(k).ids.push(id);
-    else { const g = { ids: [id] }; seen.set(k, g); out.push(g); }
-  });
-  return out;
-}
 const sameAs = (s, ids) => ids.filter(x => spool(x).swatchId === s.swatchId).length;
 
 function render() {
@@ -1047,23 +1049,90 @@ function render() {
 
   const shelf = document.getElementById("spares-row");
   shelf.innerHTML = state.spares.length
-    ? stacks(state.spares).map(g => spoolHTML(spool(g.ids[0]), g.ids.length)).join("")
+    ? Batch.stacks(state.spares, spool).map(g => spoolHTML(spool(g.ids[0]), g.ids.length)).join("")
     : `<p class="empty-note">Nothing unassigned. New rolls land here until you drag them into a unit; identical ones stack.</p>`;
   document.getElementById("spares-meta").textContent = state.spares.length ? state.spares.length + " waiting" : "";
 
   const row = document.getElementById("reorder-row");
   row.innerHTML = state.reorder.length
-    ? stacks(state.reorder).map(g => spoolHTML(spool(g.ids[0]), g.ids.length)).join("")
+    ? Batch.stacks(state.reorder, spool).map(g => spoolHTML(spool(g.ids[0]), g.ids.length)).join("")
     : `<p class="empty-note">Nothing to reorder. Drag a spool here when it runs out and it'll queue up for a restock.</p>`;
   const onOrder = state.reorder.filter(id => spool(id).ordered).length;
   document.getElementById("reorder-meta").textContent =
     state.reorder.length ? state.reorder.length + " to buy" + (onOrder ? " · " + onOrder + " ordered" : "") : "";
 
+  document.getElementById("spares-move").innerHTML = zoneMoveHTML("spares");
+  document.getElementById("reorder-move").innerHTML = zoneMoveHTML("reorder");
+
   renderSwatches();
   renderProjects();
   renderSetup();
 
+  paintBatch();
   flash.clear();
+}
+
+/* ======================= moving a handful at once =======================
+   Arming is a separate step on purpose. A row of a dozen unassigned rolls with
+   four of them permanently outlined is noise you learn to stop seeing; asked
+   for, the same outline answers "which four?" before you commit to dragging
+   anything. Tap once to see, drag to move, tap again for a list of places. */
+let batchArm = null;
+
+const armed = source => !!batchArm && batchArm.key === sourceKey(source);
+const sourceKey = source => (source.unitId ? "unit:" + source.unitId : "zone:" + source.zone);
+
+/* The rolls a source would hand over, in the order the row draws them. Stacks
+   are flattened first: a pile of four identical blacks is four rolls, and the
+   card standing for it is one card. */
+function batchIds(source) {
+  if (source.unitId) {
+    const u = unit(source.unitId);
+    return u ? Batch.batchFrom(u.slots.filter(Boolean)) : [];
+  }
+  const held = source.zone === "reorder" ? state.reorder : state.spares;
+  return Batch.looseBatch(held, spool);
+}
+
+function armBatch(source) {
+  const ids = batchIds(source);
+  if (!ids.length) return;
+  batchArm = { key: sourceKey(source), source, ids };
+  render();
+}
+
+const disarmBatch = () => { if (batchArm) { batchArm = null; render(); } };
+
+/* Applied after every render rather than threaded through each view: a card
+   carries the id of the first roll in its stack, which is always the first of
+   any batch that reaches it, so membership is a set lookup. */
+function paintBatch() {
+  document.querySelectorAll(".spool.in-batch").forEach(el => el.classList.remove("in-batch"));
+  if (!batchArm) return;
+  const ids = new Set(batchArm.ids);
+  document.querySelectorAll(".spool[data-id]").forEach(el => {
+    if (ids.has(el.dataset.id)) el.classList.add("in-batch");
+  });
+}
+
+/* The same control the units carry, for the zones that have no header of their
+   own to put one in. */
+function zoneMoveHTML(zone) {
+  const held = zone === "reorder" ? state.reorder : state.spares;
+  if (held.length < 2) return "";
+  const take = Math.min(held.length, Batch.BATCH_SIZE);
+  return `<button class="umove zone-move${armed({ zone }) ? " armed" : ""}" data-zonemove="${zone}"
+    title="${esc(Batch.batchLabel(take))} — tap to show which, then drag them or tap again for a list"
+    aria-label="${esc(Batch.batchLabel(take))}">
+    <svg viewBox="0 0 12 12" width="13" height="13" aria-hidden="true">
+      <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+      <circle cx="6" cy="6" r="1.6" fill="currentColor"/>
+    </svg><span class="n">${take}</span>
+    <svg viewBox="0 0 8 14" width="8" height="14" aria-hidden="true">
+      <path d="M4 1.2v11.6M4 1.2 1.7 3.8M4 1.2l2.3 2.6M4 12.8l-2.3-2.6M4 12.8l2.3-2.6"
+            fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>`;
 }
 
 /* ============================ drag & drop ============================ */
@@ -1137,20 +1206,23 @@ function aimDrag(x, y) {
    a horizontal drag and a horizontal swipe are the same gesture. */
 let udrag = null, lastUnitDrag = 0;
 document.addEventListener("pointerdown", e => {
-  const grip = e.target.closest("[data-grip]");
+  const zoneBtn = e.target.closest("[data-zonemove]");
+  const grip = zoneBtn || e.target.closest("[data-grip]");
   if (grip) {
     if (e.button > 0) return;
-    const u = unit(grip.dataset.grip);
-    if (!u || !u.slots.some(Boolean)) return;
-    /* With a mouse the whole header is the handle. On touch it cannot be — the
-       header is also the collapse toggle — so only the move button starts a
+    const source = zoneBtn ? { zone: zoneBtn.dataset.zonemove } : { unitId: grip.dataset.grip };
+    const ids = batchIds(source);
+    if (!ids.length) return;
+    /* With a mouse the whole unit header is the handle. On touch it cannot be —
+       the header is also the collapse toggle — so only the move button starts a
        drag, and only after a press-and-hold, which leaves a plain tap free to
-       open the picker as it always did. */
+       arm the batch as it always freed one to open the picker. A zone's control
+       is a button already and has no such conflict. */
     const touch = e.pointerType === "touch";
-    const handle = touch ? e.target.closest("[data-umove]") : grip;
+    const handle = zoneBtn || (touch ? e.target.closest("[data-umove]") : grip);
     if (!handle) return;
-    udrag = { id: u.id, x: e.clientX, y: e.clientY, active: false,
-              n: u.slots.filter(Boolean).length, touch, handle };
+    udrag = { source, ids, x: e.clientX, y: e.clientY, active: false,
+              n: ids.length, touch, handle };
     handle.setPointerCapture(e.pointerId);
     if (touch) udrag.hold = setTimeout(startUnitTouchDrag, 320);
     return;
@@ -1272,8 +1344,8 @@ function unitDragEnd(cancelled) {
      opens the picker. lastUnitDrag stays untouched so it is not suppressed. */
   if (!d.active || cancelled) return;
   lastUnitDrag = Date.now();
-  if (d.drop) moveAll(d.id, d.drop);
-  else toast("Drop it on another unit, or on Unassigned, to move everything across.");
+  if (d.drop) moveBatch(d.ids, d.drop, d.source);
+  else toast("Drop them on a unit, or on Unassigned.");
 }
 
 /* ============================ swipe (touch) ============================ */
@@ -1403,7 +1475,7 @@ function close() {
   if (s) s.remove();
   document.body.style.overflow = "";
 }
-document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") { close(); disarmBatch(); } });
 
 /* --- add or edit a roll of a known colour --- */
 function spoolForm(existing, swatchId) {
@@ -1617,12 +1689,11 @@ function newProject(file, kind) {
 }
 
 /* Guess which colour in the library a filament entry came off. */
-const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) || 0);
 function matchSwatch(type, color) {
-  const want = rgb(color);
+  const want = Colour.rgb(color);
   let best = null, score = Infinity;
   state.swatches.forEach(w => {
-    const got = rgb(w.hex);
+    const got = Colour.rgb(w.hex);
     const dc = Math.hypot(want[0] - got[0], want[1] - got[1], want[2] - got[2]);
     const a = family(w.material), b = family(type);
     const s = dc + (a === b ? 0 : 240);
@@ -2149,35 +2220,6 @@ document.addEventListener("click", e => {
 /* A record of colours, not of plastic. Spools feed it automatically and it
    keeps the entry after the last roll is gone — that's the whole point. */
 
-/* Ordering colours is a perceptual problem, so it is done in a perceptual
-   space. OKLCH costs about fifteen lines and fixes two things HSL gets wrong
-   for a shelf of filament: its lightness calls #F5C518 and #3E7BD1 equally
-   bright, which no eye agrees with, and its hue crowds every yellow into twenty
-   degrees while letting the greens sprawl over sixty. */
-const srgbToLinear = u => (u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4));
-
-function oklch(hex) {
-  const [r8, g8, b8] = rgb(hex);
-  const r = srgbToLinear(r8 / 255), g = srgbToLinear(g8 / 255), b = srgbToLinear(b8 / 255);
-  const cl = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
-  const cm = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
-  const cs = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-  const L = 0.2104542553 * cl + 0.7936177850 * cm - 0.0040720468 * cs;
-  const a = 1.9779984951 * cl - 2.4285922050 * cm + 0.4505937099 * cs;
-  const bb = 0.0259040371 * cl + 0.7827717662 * cm - 0.8086757660 * cs;
-  let h = (Math.atan2(bb, a) * 180) / Math.PI;
-  if (h < 0) h += 360;
-  return { L, C: Math.hypot(a, bb), h };
-}
-const readable = hex => {
-  const [r, g, b] = rgb(hex);
-  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.56 ? "#16181D" : "#F2F1ED";
-};
-
-/* How much of a translucent colour survives where the row thins out. */
-const CLEAR_ALPHA = 0.7;
-const CLEAR_HEX = Math.round(CLEAR_ALPHA * 255).toString(16);
-
 /* The inline half of a swatch's paint job. Opaque ones set a flat background;
    translucent ones hand the stylesheet the true colour and a thinned copy, and
    let it do the layering.
@@ -2186,59 +2228,14 @@ const CLEAR_HEX = Math.round(CLEAR_ALPHA * 255).toString(16);
    translucent row are the raw hex — the name sits on one, the stock count on
    the other. */
 const swatchPaint = sw => (sw.transparent
-  ? `--solid:${esc(sw.hex)};--tint:${esc(sw.hex)}${CLEAR_HEX};color:${readable(sw.hex)}`
-  : `background:${esc(sw.hex)};color:${readable(sw.hex)}`);
-/* Rainbow first, then the neutrals as their own band from white down to black.
- *
- * HUE_START is where the circle gets cut, and a circle has to be cut somewhere.
- * 350° puts the join between magenta and crimson so every red stays together at
- * the front. Sorting raw hue cuts at 0° instead, which sends a warm red to one
- * end of the shelf and a cool one to the other — they differ by a couple of
- * degrees and end up as far apart as it is possible to be.
- *
- * Within a band the order is vivid to muted, so a family reads as a run from
- * the pure colour down through its greyed and pastel versions. Lightness only
- * breaks ties: ordering a band by lightness alone buried a pure orange behind a
- * pale peach and a brown that happened to share its hue. */
-const HUE_START = 350, HUE_BAND = 20, NEUTRAL_C = 0.04;
-
-/* Brown is not a hue. It is a warm colour with most of the chroma taken out,
- * which is why a chroma threshold alone scatters it: #C09F83 keeps just enough
- * to sort among the oranges while #D9C7B2 and #625141 fall through to the
- * greys — three shades of the same thing in three different places.
- *
- * So warmth decides, not colourfulness. Below EARTH_C a colour that still leans
- * orange is an earth tone; one that leans blue, or leans nowhere, is a grey.
- * #899FAB and #625141 have almost identical chroma and belong in different
- * places, and their hue is the only thing that says so.
- *
- * The floor matters as much as the ceiling. Hue is a direction, and a colour
- * with no chroma is not pointing anywhere — pure white computes to hue 90,
- * squarely in the warm range, and would file itself under brown. Below
- * EARTH_C[0] the hue is 8-bit rounding noise and the colour is simply grey.
- *
- * The arc runs from 330°, so it takes in the washed-out pinks as well as the
- * tans. A pale pink is the same phenomenon as a brown — a warm colour with the
- * chroma drained — and #F1DEDF has less chroma than #899FAB while still
- * obviously being a pink and not a grey. That asymmetry is real: blues and
- * greens desaturate into greys, warm colours desaturate into pinks and tans and
- * keep their name. */
-const EARTH_C = [0.015, 0.09], EARTH_HUE = [330, 110], EARTH_BAND = 40;
-
-const inArc = (h, [from, to]) => (from <= to ? h >= from && h <= to : h >= from || h <= to);
-
-/* 0 rainbow, 1 earth, 2 neutral — the three runs the shelf reads in. */
-const colourTier = t =>
-  t.C >= EARTH_C[0] && t.C < EARTH_C[1] && inArc(t.h, EARTH_HUE) ? 1
-    : t.C < NEUTRAL_C ? 2
-    : 0;
-
+  ? `--solid:${esc(sw.hex)};--tint:${esc(sw.hex)}${Colour.CLEAR_HEX};color:${Colour.readable(sw.hex)}`
+  : `background:${esc(sw.hex)};color:${Colour.readable(sw.hex)}`);
 function sortedSwatches() {
-  const band = t => Math.floor(((t.h - HUE_START + 360) % 360) / HUE_BAND);
-  const earthBand = t => Math.floor(((t.h - EARTH_HUE[0] + 360) % 360) / EARTH_BAND);
+  const band = t => Math.floor(((t.h - Colour.HUE_START + 360) % 360) / Colour.HUE_BAND);
+  const earthBand = t => Math.floor(((t.h - Colour.EARTH_HUE[0] + 360) % 360) / Colour.EARTH_BAND);
   return [...state.swatches].sort((x, y) => {
-    const A = oklch(x.hex), B = oklch(y.hex);
-    const ta = colourTier(A), tb = colourTier(B);
+    const A = Colour.oklch(x.hex), B = Colour.oklch(y.hex);
+    const ta = Colour.colourTier(A), tb = Colour.colourTier(B);
     if (ta !== tb) return ta - tb;
 
     /* Neutrals have no hue worth reading — a plain run from white to black. */
@@ -2334,37 +2331,11 @@ const CAMERA_ICON = `<svg viewBox="0 0 256 256" width="18" height="18" fill="cur
  * The band is symmetric on purpose: trimming more from one end than the other
  * would bias every reading that way, which is its own kind of colour shift.
  * On an evenly lit patch every pixel is alike and this returns it exactly. */
-/* ---------------- hex ⇄ hue, saturation, value ----------------
-   The wheel is polar and the app stores hex, so every interaction crosses this
-   pair. Value is kept separate from the disc: hue and saturation are where you
-   are on the wheel, brightness is how far the light is turned up. */
-function hexToHsv(hex) {
-  const n = parseInt(hex.slice(1), 16);
-  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
-  let h = 0;
-  if (d) {
-    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
-    else if (max === g) h = ((b - r) / d + 2) * 60;
-    else h = ((r - g) / d + 4) * 60;
-  }
-  return { h, s: max ? d / max : 0, v: max };
-}
-
-function hsvToHex(h, s, v) {
-  const f = n => {
-    const k = (n + h / 60) % 6;
-    return Math.round(255 * (v - v * s * Math.max(0, Math.min(k, 4 - k, 1))));
-  };
-  const pair = x => x.toString(16).padStart(2, "0");
-  return ("#" + pair(f(5)) + pair(f(3)) + pair(f(1))).toUpperCase();
-}
-
 /* A hue wheel with a brightness slider, opened on whatever colour is already
    chosen. Built as its own scrim for the same reason the sampler is: modal()
    would close the swatch sheet and take the half-filled form with it. */
 function openWheel(startHex, onPick) {
-  let { h, s, v } = hexToHsv(startHex);
+  let { h, s, v } = Colour.hexToHsv(startHex);
 
   const scrim = document.createElement("div");
   scrim.className = "scrim sampler";
@@ -2395,7 +2366,7 @@ function openWheel(startHex, onPick) {
   const valEl = scrim.querySelector("#cw-val");
 
   function paint() {
-    const hex = hsvToHex(h, s, v);
+    const hex = Colour.hsvToHex(h, s, v);
     /* The disc always shows full-brightness hues; darkening is an overlay, so
        the dot stays visible instead of vanishing into a black wheel. */
     shade.style.opacity = String(1 - v);
@@ -2441,45 +2412,9 @@ function openWheel(startHex, onPick) {
   document.addEventListener("keydown", onKey, true);
   scrim.addEventListener("pointerdown", e => { if (e.target === scrim) shut(); });
   scrim.querySelector("#cw-cancel").onclick = shut;
-  scrim.querySelector("#cw-use").onclick = () => { onPick(hsvToHex(h, s, v)); shut(); };
+  scrim.querySelector("#cw-use").onclick = () => { onPick(Colour.hsvToHex(h, s, v)); shut(); };
 
   paint();
-}
-
-/* Shifts a colour along the warm–cool axis — the correction you would apply if
- * the light were bluer or oranger than the camera took it for. Positive warms,
- * negative cools.
- *
- * Green is deliberately left alone. An illuminant shift is overwhelmingly a
- * red/blue trade; moving green as well stops being a white balance and starts
- * being a tint, which is how a reading ends up further from the spool than it
- * started. */
-function warmShift(hex, amount) {
-  if (!hex || !amount) return hex;
-  const k = amount / 250;
-  const channel = i => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16);
-  const pair = v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0");
-  return ("#" + pair(channel(0) * (1 + k)) + pair(channel(1)) + pair(channel(2) * (1 - k))).toUpperCase();
-}
-
-function bodyHex(data) {
-  const ranked = [];
-  for (let i = 0; i < data.length; i += 4) {
-    if (data[i + 3] < 128) continue;   /* transparent — not part of the picture */
-    const r = data[i], g = data[i + 1], b = data[i + 2];
-    ranked.push([0.2126 * r + 0.7152 * g + 0.0722 * b, r, g, b]);
-  }
-  if (!ranked.length) return null;
-  ranked.sort((a, b) => a[0] - b[0]);
-
-  const lo = Math.floor(ranked.length * 0.25);
-  const hi = Math.max(lo + 1, Math.ceil(ranked.length * 0.75));
-  let r = 0, g = 0, b = 0;
-  for (let i = lo; i < hi; i++) { r += ranked[i][1]; g += ranked[i][2]; b += ranked[i][3]; }
-
-  const n = hi - lo;
-  const pair = v => Math.round(v / n).toString(16).padStart(2, "0");
-  return ("#" + pair(r) + pair(g) + pair(b)).toUpperCase();
 }
 
 /* Opens the back camera and hands the sampler a live stream.
@@ -2615,8 +2550,8 @@ async function openSampler(source, onPick) {
     const y = Math.max(0, Math.min(srcH - 1, Math.round(cy - side / 2)));
     const w = Math.min(side, srcW - x);
     const h = Math.min(side, srcH - y);
-    const read = w > 0 && h > 0 ? bodyHex(fullCtx.getImageData(x, y, w, h).data) : null;
-    hex = warmShift(read, warmth);
+    const read = w > 0 && h > 0 ? Colour.bodyHex(fullCtx.getImageData(x, y, w, h).data) : null;
+    hex = Colour.warmShift(read, warmth);
     hexEl.textContent = hex || "—";
     chip.style.background = hex || "transparent";
   }
@@ -3001,60 +2936,68 @@ function swatchForm(existing, onCreate) {
 }
 
 /* ============================ moving a whole unit ============================ */
-function moveAll(fromId, target) {
-  const a = unit(fromId);
-  if (!a) return;
-  const b = target.unitId ? unit(target.unitId) : null;
-  if (b === a) return;
-  const ids = a.slots.filter(Boolean);
+/* Moves a batch, from a unit or from a loose zone, into wherever it was
+   dropped. Anything that will not fit stays exactly where it was — a move that
+   silently dropped rolls on the floor would be worse than one that half works,
+   and the toast says how many stayed behind. */
+function moveBatch(ids, target, source) {
+  const into = target.unitId ? unit(target.unitId) : null;
+  if (into && source && source.unitId === into.id) return;
   if (!ids.length) return;
 
-  const movedIds = [];
-  let moved = 0, stuck = 0;
+  const moved = [];
+  let stuck = 0;
   ids.forEach(id => {
-    if (b) {
-      const i = b.slots.indexOf(null);
-      if (i < 0) { stuck++; return; }
-      a.slots[a.slots.indexOf(id)] = null;
-      b.slots[i] = id;
+    if (into) {
+      const slot = into.slots.indexOf(null);
+      if (slot < 0) { stuck++; return; }
+      detach(id);
+      into.slots[slot] = id;
+      const s = spool(id);
+      /* A sealed roll going onto a machine or into a dryer is one you just opened. */
+      if (s.sealed && (isMachine(into) || into.kind === "dryer")) { s.sealed = false; s.driedAt = today(); }
     } else {
-      a.slots[a.slots.indexOf(id)] = null;
+      detach(id);
       (target.zone === "reorder" ? state.reorder : state.spares).push(id);
     }
-    const s = spool(id);
-    if (s.sealed && b && (isMachine(b) || b.kind === "dryer")) { s.sealed = false; s.driedAt = today(); }
-    mark(id); moved++; movedIds.push(id);
+    mark(id); moved.push(id);
   });
 
+  const cameFrom = source && source.unitId ? unit(source.unitId) : null;
+  batchArm = null;
   save(); render();
-  const where = b ? b.name : target.zone === "reorder" ? "Reorder" : "Unassigned";
-  toast(`${moved} spool${moved === 1 ? "" : "s"} → ${esc(where)}` +
-        (stuck ? ` · ${stuck} wouldn't fit, left in ${esc(a.name)}` : ""));
-  askIfDried(a, target, movedIds.map(spool));
+
+  const where = into ? into.name : target.zone === "reorder" ? "Reorder" : "Unassigned";
+  toast(`${moved.length} spool${moved.length === 1 ? "" : "s"} → ${esc(where)}` +
+        (stuck ? ` · ${stuck} wouldn't fit` : ""));
+  askIfDried(cameFrom, target, moved.map(spool));
 }
 
-function moveAllPicker(fromId) {
-  const a = unit(fromId);
-  if (!a) return;
-  const n = a.slots.filter(Boolean).length;
-  if (!n) { toast(`${a.name} is empty.`); return; }
-  const rows = state.units.filter(u => u.id !== fromId).map(u => {
+/* Where to, when dragging is the harder option — a phone in one hand, or a
+   destination several screens away. */
+function batchPicker() {
+  if (!batchArm) return;
+  const ids = batchArm.ids, n = ids.length;
+  const from = batchArm.source.unitId ? unit(batchArm.source.unitId) : null;
+  const rows = state.units.filter(u => !from || u.id !== from.id).map(u => {
     const free = u.slots.filter(x => !x).length;
     return `<button class="btn${free ? "" : " ghost"}" data-moveall="${u.id}"${free ? "" : " disabled"}>
       ${esc(u.name)} — ${free ? free + " free" : "full"}</button>`;
   }).join("");
-  modal(`<h2>Move ${n} spool${n === 1 ? "" : "s"}</h2>
-    <p class="empty-note" style="margin:-6px 0 12px">Everything currently in ${esc(a.name)}. Anything that
-      doesn't fit stays put.</p>
+  modal(`<h2>${esc(Batch.batchLabel(n))}</h2>
+    <p class="empty-note" style="margin:-6px 0 12px">The ${n === 1 ? "roll" : n + " rolls"} outlined behind this.
+      Anything that doesn't fit stays put.</p>
     <div class="pickcol">${rows}
       <button class="btn ghost" data-moveall-zone="spares">Unassigned</button>
+      <button class="btn ghost" data-moveall-zone="reorder">Reorder</button>
     </div>
     <div class="sheet-foot"><span class="spacer"></span>
       <button class="btn ghost" data-close>Cancel</button></div>`, scrim => {
+    const go = target => { close(); moveBatch(ids, target, batchArm && batchArm.source); };
     scrim.querySelectorAll("[data-moveall]").forEach(b =>
-      b.onclick = () => { close(); moveAll(fromId, { unitId: b.dataset.moveall }); });
+      b.onclick = () => go({ unitId: b.dataset.moveall }));
     scrim.querySelectorAll("[data-moveall-zone]").forEach(b =>
-      b.onclick = () => { close(); moveAll(fromId, { zone: b.dataset.moveallZone }); });
+      b.onclick = () => go({ zone: b.dataset.moveallZone }));
   });
 }
 
@@ -3116,8 +3059,18 @@ document.addEventListener("click", e => {
     if (p) { p.uses.splice(+i, 1); save(); render(); }
     return;
   }
-  const um = e.target.closest("[data-umove]");
-  if (um) { if (Date.now() - lastUnitDrag > 300) moveAllPicker(um.dataset.umove); return; }
+  /* Anywhere else puts it away — an armed batch left showing after you have
+     moved on is a row of dashes with no explanation. */
+  if (batchArm && !e.target.closest("[data-zonemove], [data-umove], .scrim")) disarmBatch();
+
+  const zm = e.target.closest("[data-zonemove], [data-umove]");
+  if (zm) {
+    if (Date.now() - lastUnitDrag < 300) return;   /* a drag just ended on it */
+    const source = zm.dataset.zonemove ? { zone: zm.dataset.zonemove } : { unitId: zm.dataset.umove };
+    if (armed(source)) batchPicker();              /* already showing which — now say where */
+    else armBatch(source);
+    return;
+  }
   const uc = e.target.closest("[data-ucollapse]");
   if (uc) {
     if (Date.now() - lastUnitDrag < 300) return;     /* just finished dragging the unit */
