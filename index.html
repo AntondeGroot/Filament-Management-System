@@ -542,23 +542,25 @@ body.dragging{cursor:grabbing;user-select:none}
 <div id="toast" role="status" aria-live="polite"></div>
 
 <!-- Scaffolding for the split. The script below is still one classic script,
-     so it cannot import anything; the module's exports reach it through a
-     single global instead. Module scripts are deferred, which is fine here —
-     nothing touches Mesh until a file is dropped on the page.
+     so it cannot import anything; the modules' exports reach it through
+     globals instead.
 
-     This block, and the Mesh. prefixes below, go the day that script becomes a
+     Module scripts are deferred, so this block runs *after* that script has
+     already called load(). Whether the first render finds these here is
+     therefore a race — one the app loses whenever fetching five files beats
+     reading IndexedDB, which is why load() waits for bridged() below rather
+     than trusting it.
+
+     This block, and the prefixes below, go the day that script becomes a
      module too. -->
 <script type="module">
-  import * as mesh from "./src/mesh.js";
-  import * as drying from "./src/drying.js";
-  import * as polymaker from "./src/polymaker.js";
-  import * as batch from "./src/batch.js";
-  import * as colour from "./src/colour.js";
-  window.Mesh = mesh;
-  window.Drying = drying;
-  window.Polymaker = polymaker;
-  window.Batch = batch;
-  window.Colour = colour;
+  import * as Mesh from "./src/mesh.js";
+  import * as Drying from "./src/drying.js";
+  import * as Polymaker from "./src/polymaker.js";
+  import * as Batch from "./src/batch.js";
+  import * as Colour from "./src/colour.js";
+  Object.assign(window, { Mesh, Drying, Polymaker, Batch, Colour });
+  window.bridged();
 </script>
 
 <script>
@@ -667,6 +669,17 @@ const storage = (() => {
   };
 })();
 
+/* Resolves when the module bridge above has run. Lose that race and render()
+   throws on the first Drying call, after the header counts are already in the
+   DOM but before a single unit or swatch is drawn: the app comes up as an empty
+   workshop, with the entire inventory sitting intact in memory behind it, and
+   nothing re-renders to correct it. Reading IndexedDB is usually the slower of
+   the two, which is the only reason this ever appeared to work.
+
+   Already fulfilled under the test harness, which installs the modules itself
+   before any of this runs. */
+const bridge = window.Drying ? Promise.resolve() : new Promise(r => { window.bridged = r; });
+
 async function load() {
   try {
     const saved = await storage.get();
@@ -685,6 +698,9 @@ async function load() {
     try { nativePerm = (await ln.checkPermissions()).display; } catch (e) { nativePerm = "denied"; }
   }
 
+  /* Awaited here rather than at the top, so the read above and the module
+     fetches overlap instead of queueing. */
+  await bridge;
   render();
   notifyCheck();
   syncScheduled();

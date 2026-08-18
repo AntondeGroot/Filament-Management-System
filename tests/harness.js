@@ -40,11 +40,11 @@ const MODULES = { Batch: batch, Colour: colour, Drying: drying, Mesh: mesh, Poly
  * `now` freezes the clock before any test code runs. The scheduling code
  * branches on whether 09:00 has already passed today, so a test written against
  * the real clock would pass all morning and fail all afternoon. */
-export async function openApp({ now } = {}) {
+export async function openApp({ now, modules = true } = {}) {
   const dom = new JSDOM(html, {
     runScripts: "dangerously",
     url: "http://localhost/",
-    beforeParse: window => Object.assign(window, MODULES),
+    beforeParse: window => modules && Object.assign(window, MODULES),
   });
   const run = code => dom.window.eval(code);
 
@@ -57,6 +57,14 @@ export async function openApp({ now } = {}) {
   if (now) freezeClock(run, now);
 
   return { run, window: dom.window, close: () => dom.window.close() };
+}
+
+/* Performs the handover late, the way the deferred module block does in a
+   browser — for the one test that boots with `modules: false` to watch what the
+   app does while the fetches are still in flight. */
+export function bridgeModules({ window, run }) {
+  Object.assign(window, MODULES);
+  run("window.bridged()");
 }
 
 /* Replaces Date inside the realm, not in the test's own. The app builds its
