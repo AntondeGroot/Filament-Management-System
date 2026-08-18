@@ -8,16 +8,27 @@
  * does — a prompt that appears when the answer is obvious gets dismissed
  * without being read, and then so does the one that mattered. */
 
-/* The ids worth asking about, given a move. Empty when the question is not
-   worth putting: the roll is going into another dryer and is still drying, it
-   is on its way to the reorder queue where it is an empty spool and dryness is
-   beside the point, or it was already marked dry today and the answer is on
-   record. */
-export function needsDryingAnswer({ fromKind, toKind, toZone, spools, today }) {
+/* The ids worth asking about, given a move.
+ *
+ * A roll is asked about when it leaves a dryer with a cycle still unanswered.
+ * That flag is set the moment it goes in and cleared only by an answer, which
+ * makes the question belong to the visit rather than to the calendar.
+ *
+ * It used to key off "already recorded as dried today", which looked the same
+ * until a roll dried in the morning went back in for a second run: the answer
+ * on file was about the first cycle, and the second one was never asked about.
+ * Time in the dryer is not measured at all, deliberately — someone drying a
+ * backlog records it hours later, so any duration the app could compute would
+ * be the gap between two pieces of data entry rather than between two events.
+ *
+ * The rest is about when the question is not worth putting: into another dryer
+ * it is still drying, and onto the reorder queue it is an empty spool whose
+ * dryness is beside the point. */
+export function needsDryingAnswer({ fromKind, toKind, toZone, spools }) {
   if (fromKind !== "dryer") return [];
   if (toKind === "dryer") return [];
   if (toZone === "reorder") return [];
-  return spools.filter(s => s && s.driedAt !== today).map(s => s.id);
+  return spools.filter(s => s && s.dryPending).map(s => s.id);
 }
 
 /* Phrased as a question about the rolls in hand, not about the app's state —

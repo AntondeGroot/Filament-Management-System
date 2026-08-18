@@ -693,6 +693,10 @@ function migrate() {
      date and nothing is banked — which reproduces exactly what these rolls
      showed before, and starts billing properly from the next move. */
   state.spools.forEach(s => { if (!("used" in s)) { s.used = 0; s.since = s.driedAt || today(); } });
+  /* Rolls already in a dryer are mid-cycle by definition, and nobody has been
+     asked about them yet. */
+  state.units.forEach(u => u.kind === "dryer" && u.slots.forEach(id =>
+    { const s = id && spool(id); if (s && !("dryPending" in s)) s.dryPending = true; }));
   if (!("notify" in state)) { state.notify = false; state.notifiedOn = null; }
   /* Dryers arrived after the first release, so a bench saved before then gets one
      inserted. An empty bench is not an old bench — it has nothing to migrate, and
@@ -867,6 +871,7 @@ function place(id, target) {
     if (displaced) bankDrying(displaced);
     detach(id);
     u.slots[target.slot] = id;
+    startCycle(u, s);
     if (displaced) {
       /* Always a straight swap: the roll that was there goes exactly where the
          dragged one came from, whether that's another slot or a loose zone. */
@@ -935,7 +940,12 @@ function bankDrying(id) {
 }
 
 /* Out of the dryer and good as new. */
-function resetDrying(s) { s.driedAt = today(); s.since = today(); s.used = 0; }
+function resetDrying(s) { s.driedAt = today(); s.since = today(); s.used = 0; s.dryPending = false; }
+
+/* A roll put into a dryer has a cycle running, and nobody has said yet whether
+   it finished. Cleared only by answering, so a roll dried this morning and put
+   back in this afternoon is asked about again on the way out. */
+const startCycle = (u, s) => { if (u && u.kind === "dryer" && s) s.dryPending = true; };
 const needsDrying = () => state.spools.filter(s => !inReorder(s.id) && !s.sealed && dryState(s).stale);
 /* Spools in load order: printer first, then dryer, boxes, shelf. */
 function allSpoolsRanked() {
@@ -2998,6 +3008,7 @@ function moveBatch(ids, target, source) {
       detach(id);
       into.slots[slot] = id;
       const s = spool(id);
+      startCycle(into, s);
       /* A sealed roll going onto a machine or into a dryer is one you just opened. */
       if (s.sealed && (isMachine(into) || into.kind === "dryer")) { s.sealed = false; resetDrying(s); }
     } else {
@@ -3050,12 +3061,8 @@ function batchPicker() {
    when you are holding them and can tell. Answering no costs nothing — the
    countdown carries on from whenever it last actually ran. */
 function askIfDried(cameFrom, target, spools) {
-  const ids = Drying.needsDryingAnswer({
-    fromKind: cameFrom && cameFrom.kind,
-    toKind: target.unitId ? (unit(target.unitId) || {}).kind : null,
-    toZone: target.zone,
-    spools, today: today(),
-  });
+  const ids = Drying.needsDryingAnswer({ fromKind: cameFrom && cameFrom.kind, toZone: target.zone,
+    toKind: target.unitId ? (unit(target.unitId) || {}).kind : null, spools });
   if (!ids.length) return;
   const n = ids.length;
   modal(`<h2>${esc(Drying.dryingQuestion(n))}</h2>
