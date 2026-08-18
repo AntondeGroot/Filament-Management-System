@@ -1,9 +1,9 @@
 # Filament Management System
 
-**○ Know where every spool is,**\
-**○ which ones need drying,**\
-**○ which filament to buy,**\
-**○ which prints used which filaments.**
+**○ Know where every spool is**\
+**○ which ones need drying**\
+**○ which ones to buy again**\
+**○ which prints used which filaments**
 
 
 On your phone, offline.
