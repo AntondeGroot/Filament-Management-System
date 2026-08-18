@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { needsDryingAnswer } from "../src/drying.js";
+import { dryUsed, daysLeft, needsDryingAnswer, spent } from "../src/drying.js";
 
 /* Only the two fields the decision reads. Anything else on a spool would be
    noise here, and inventing it would suggest the rule depends on it. */
@@ -51,5 +51,75 @@ describe("needsDryingAnswer()", () => {
     /* Unassigned is not the same: that is filament you still own and will
        print with, so the question stands. */
     expect(move({ toKind: null, toZone: "spares" })).toEqual(["sp-a", "sp-b"]);
+  });
+});
+
+describe("dryUsed()", () => {
+  it("charges each stay at the rate of the place it was spent", () => {
+    const BOX = 26 * 7;   /* a sealed box keeps a roll twenty-six weeks */
+    const AMS = 12 * 7;   /* an AMS, twelve */
+
+    /* Four weeks in the box is four of its twenty-six. */
+    const afterBox = dryUsed(0, 28, BOX);
+    expect(afterBox).toBeCloseTo(4 / 26, 6);
+
+    /* Two more in the AMS is two of its twelve, on top of what was banked —
+       not two twenty-sixths, and not a fresh start either. */
+    const afterAms = dryUsed(afterBox, 14, AMS);
+    expect(afterAms).toBeCloseTo(4 / 26 + 2 / 12, 6);
+
+    /* The whole six weeks billed at AMS rates, which is what a single drying
+       date forces: it cannot know the first four were spent somewhere safe.
+       Nearly twice the true figure, and the reason this is a ledger. */
+    expect(dryUsed(0, 42, AMS)).toBeCloseTo(6 / 12, 6);
+    expect(afterAms).toBeLessThan(dryUsed(0, 42, AMS));
+  });
+});
+
+describe("daysLeft()", () => {
+  it("reports what is left, and never less than none", () => {
+    const BOX = 26 * 7;
+
+    /* Nothing spent leaves the whole window; half spent leaves half of it. */
+    expect(daysLeft(0, BOX)).toBe(BOX);
+    expect(daysLeft(0.5, BOX)).toBe(BOX / 2);
+
+    /* Overdue does not run backwards. A roll 179% through its window is due
+       now, not due four months ago. A negative would date the reminder into
+       the past, where the worker compares it against today, finds it long
+       gone, and nothing ever fires. */
+    expect(daysLeft(2.79, BOX)).toBe(0);
+
+    /* A dryer has no window, so there is nothing to run out of. dueList checks
+       this with Number.isFinite and leaves the roll out; any large number
+       instead would have planted a real-looking date years away. */
+    expect(daysLeft(0.5, 0)).toBe(Infinity);
+  });
+});
+
+describe("spent()", () => {
+  it("charges nothing where there is no window to run out", () => {
+    const BOX = 26 * 7;
+
+    /* An ordinary stay costs its share, which is the whole rule. */
+    expect(spent(28, BOX)).toBeCloseTo(4 / 26, 6);
+
+    /* A dryer has no window. A roll can sit in one for a year and owe nothing,
+       which is what lets the ledger keep running while it dries instead of
+       having to be stopped and restarted around each visit. */
+    expect(spent(365, 0)).toBe(0);
+
+    /* Setting a type to "never" in Setup arrives here as the same thing. */
+    expect(spent(365, null)).toBe(0);
+
+    /* And the one that would be quietly catastrophic: a missing interval makes
+       weeks * 7 into NaN. NaN spreads through every later sum, and because
+       NaN > 1 is false, every roll it touched would simply never come due —
+       no error, no droplet, no reminder, ever. */
+    expect(spent(365, NaN)).toBe(0);
+
+    /* Moving a roll on the day it arrived costs nothing, so shuffling things
+       about does not slowly add up. */
+    expect(spent(0, BOX)).toBe(0);
   });
 });

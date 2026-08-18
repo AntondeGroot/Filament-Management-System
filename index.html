@@ -689,6 +689,10 @@ async function load() {
 function migrate() {
   if (!state.deleted) state.deleted = {};
   if (!state.camera) state.camera = {};
+  /* No history to reconstruct, so the current stay is charged from the drying
+     date and nothing is banked — which reproduces exactly what these rolls
+     showed before, and starts billing properly from the next move. */
+  state.spools.forEach(s => { if (!("used" in s)) { s.used = 0; s.since = s.driedAt || today(); } });
   if (!("notify" in state)) { state.notify = false; state.notifiedOn = null; }
   /* Dryers arrived after the first release, so a bench saved before then gets one
      inserted. An empty bench is not an old bench — it has nothing to migrate, and
@@ -790,7 +794,9 @@ function dueList() {
     if (s.sealed || inReorder(s.id)) return;
     const d = dryState(s);
     if (!d.weeks || d.drying || !s.driedAt) return;
-    const at = new Date(new Date(s.driedAt + "T00:00:00").getTime() + d.window * 864e5);
+    const left = Drying.daysLeft(d.used, d.window);
+    if (!Number.isFinite(left)) return;
+    const at = new Date(Date.now() + left * 864e5);
     out.push({ name: info(s).colorName, at: iso(at) });
   });
   return out;
@@ -830,6 +836,7 @@ function locationOf(id) {
   return null;
 }
 function detach(id) {
+  bankDrying(id);
   for (const u of state.units) {
     const i = u.slots.indexOf(id);
     if (i > -1) u.slots[i] = null;
@@ -852,6 +859,12 @@ function place(id, target) {
     const displaced = u.slots[target.slot];
     if (displaced === id) return;
     const s = spool(id);
+    /* Bill the roll about to be shoved out while it is still standing in the
+       slot. A moment later that slot holds the new roll, locationOf can no
+       longer say where the old one was, and its stay would be charged at the
+       loose rate — a month in an AMS billed as a month of nothing in
+       particular, which for a four-week window is the entire thing. */
+    if (displaced) bankDrying(displaced);
     detach(id);
     u.slots[target.slot] = id;
     if (displaced) {
@@ -863,7 +876,7 @@ function place(id, target) {
     }
     /* A sealed roll going into the printer or the dryer is a roll you just opened. */
     const opened = s && s.sealed && (isMachine(u) || u.kind === "dryer");
-    if (opened) { s.sealed = false; s.driedAt = today(); }
+    if (opened) { s.sealed = false; resetDrying(s); }
 
     /* Nothing here is ever thrown away, so always say where the other one went. */
     const notes = [];
@@ -897,12 +910,32 @@ function dryState(s) {
   const drying = !!(u && u.kind === "dryer");
   const weeks = u ? state.dryWeeks[u.kind] : LOOSE_DRY;
   const window = weeks * 7;
-  if (!s.driedAt || !weeks) return { drying, weeks, window, days: null, stale: false, level: null };
-  const days = daysSince(s.driedAt);
+  /* Somewhere with no window — a dryer, or a type set to never — nothing is
+     spent, but what was already banked still stands and has to be reported, or
+     a roll appears to have been dried simply by being put somewhere quiet. */
+  if (!s.driedAt || !weeks) {
+    return { drying, weeks, window, days: null, stale: false, level: null, used: s.used || 0 };
+  }
+  const days = daysSince(s.driedAt);                    /* for saying "dried N ago" */
+  /* Only the current stay is still running; everything before it is banked. */
+  const used = Drying.dryUsed(s.used, drying ? 0 : daysSince(s.since || s.driedAt), window);
   /* Four steps, not a percentage — a droplet can't honestly show 37%. */
-  const level = drying ? null : Math.max(0, Math.min(4, Math.floor(days / window * 4)));
-  return { drying, weeks, window, days, level, stale: !drying && days > window };
+  const level = drying ? null : Math.max(0, Math.min(4, Math.floor(used * 4)));
+  return { drying, weeks, window, days, used, level, stale: !drying && used > 1 };
 }
+
+/* Bills the stay a roll is finishing and starts the clock on the next one.
+   Called as it leaves, while it can still be asked where it has been. */
+function bankDrying(id) {
+  const s = spool(id);
+  if (!s || !s.driedAt) return;
+  const d = dryState(s);
+  if (!d.drying) s.used = Drying.dryUsed(s.used, daysSince(s.since || s.driedAt), d.window);
+  s.since = today();
+}
+
+/* Out of the dryer and good as new. */
+function resetDrying(s) { s.driedAt = today(); s.since = today(); s.used = 0; }
 const needsDrying = () => state.spools.filter(s => !inReorder(s.id) && !s.sealed && dryState(s).stale);
 /* Spools in load order: printer first, then dryer, boxes, shelf. */
 function allSpoolsRanked() {
@@ -2966,7 +2999,7 @@ function moveBatch(ids, target, source) {
       into.slots[slot] = id;
       const s = spool(id);
       /* A sealed roll going onto a machine or into a dryer is one you just opened. */
-      if (s.sealed && (isMachine(into) || into.kind === "dryer")) { s.sealed = false; s.driedAt = today(); }
+      if (s.sealed && (isMachine(into) || into.kind === "dryer")) { s.sealed = false; resetDrying(s); }
     } else {
       detach(id);
       (target.zone === "reorder" ? state.reorder : state.spares).push(id);
@@ -3031,7 +3064,7 @@ function askIfDried(cameFrom, target, spools) {
       <button class="btn ghost" data-close>Not yet</button>
       <button class="btn primary" id="dq-yes">Yes, dry</button></div>`, scrim => {
     scrim.querySelector("#dq-yes").onclick = () => {
-      ids.forEach(id => { const s = spool(id); if (s) { s.driedAt = today(); mark(id); } });
+      ids.forEach(id => { const s = spool(id); if (s) { resetDrying(s); mark(id); } });
       close(); save(); render();
       toast(`${n} spool${n === 1 ? "" : "s"} marked dry.`);
     };
@@ -3042,7 +3075,7 @@ function markDried(unitId) {
   const u = unit(unitId); if (!u) return;
   const inside = u.slots.filter(Boolean);
   if (!inside.length) { toast("The dryer is empty — drag some spools in first."); return; }
-  inside.forEach(id => spool(id).driedAt = today());
+  inside.forEach(id => resetDrying(spool(id)));
   save(); render();
   toast(`${inside.length} spool${inside.length > 1 ? "s" : ""} marked dry.`);
 }
