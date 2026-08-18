@@ -12,7 +12,8 @@
     "android:install": "bash scripts/install-android.sh",
     "test": "vitest run",
     "test:watch": "vitest",
-    "polymaker": "node scripts/fetch-polymaker.mjs"
+    "polymaker": "node scripts/fetch-polymaker.mjs",
+    "screenshots": "npm run build && node scripts/generate-readme-images.mjs"
   },
   "dependencies": {
     "@capacitor/local-notifications": "^8.2.1"
