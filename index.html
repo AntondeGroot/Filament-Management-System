@@ -533,7 +533,13 @@ body.dragging{cursor:grabbing;user-select:none}
     <div class="log-head"><div class="eyebrow">Projects</div><div class="hair"></div>
       <div class="meta mono" id="log-meta" style="font-size:11px;color:var(--ink-soft)"></div></div>
     <div class="dropzone" id="dropzone">Pick <b>.3mf</b> or <b>.stl</b> files to keep track of</div>
-    <input type="file" id="fileinput" accept=".3mf,.stl" multiple hidden>
+    <!-- Deliberately unfiltered. Android turns an accept list into MIME types
+         for the picker's intent, and neither .3mf nor .stl has a MIME type
+         every provider agrees on — a cloud provider that resolves one and not
+         the other greys out everything it cannot name, and the file you came
+         for is right there and untappable. intake() checks the name after the
+         pick instead, where a wrong file costs a toast rather than a dead end. -->
+    <input type="file" id="fileinput" multiple hidden>
     <div id="projects"></div>
   </div>
 </div>
