@@ -140,3 +140,21 @@ export function bodyHex(data) {
   return ("#" + pair(r) + pair(g) + pair(b)).toUpperCase();
 }
 
+
+/* The colour of a spool's bore.
+ *
+ * A bore is a hole, and through a hole you see whatever the spool is lying on
+ * — which here is always a card, --panel. So the bore is simply that colour,
+ * and reads as an opening rather than as a tinted version of the filament.
+ * Shadow was the wrong model: on a mid purple a darkened bore is barely there,
+ * and on a 17px chip it is not there at all.
+ *
+ * The exception is filament as pale as the card itself, where a hole would be
+ * invisible for the same reason. Those get a dark bore instead — the one case
+ * with nothing lighter to fall back on.
+ *
+ * Judged in OKLCH lightness so an ivory and a cold white are sorted the way an
+ * eye sorts them, not by which channel happens to be highest. */
+export const BORE_PALE = 0.9;
+export const bore = hex =>
+  (oklch(hex).L > BORE_PALE ? "rgba(0,0,0,.42)" : "var(--panel)");

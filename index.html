@@ -188,8 +188,19 @@ body.dragging .unit-head[data-grip]{cursor:grabbing}
 
 .disc{position:relative;width:42px;height:42px;flex:none}
 .disc .flange{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 6%,rgba(0,0,0,.16) 0 2px,transparent 2px),radial-gradient(circle at 12% 72%,rgba(0,0,0,.16) 0 2px,transparent 2px),radial-gradient(circle at 88% 72%,rgba(0,0,0,.16) 0 2px,transparent 2px),radial-gradient(circle,transparent 0 39%,rgba(0,0,0,.07) 39% 41%,transparent 41%),var(--flange);box-shadow:inset 0 0 0 1px rgba(0,0,0,.22),inset 0 0 0 3px rgba(255,255,255,.28)}
-.disc .wind{position:absolute;left:50%;top:50%;width:calc(24% + 52% * var(--fill,1));aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background-color:var(--c,#888);background-image:repeating-radial-gradient(circle,rgba(255,255,255,.16) 0 1px,rgba(0,0,0,.06) 1px 3px);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);transition:width .25s ease}
-.disc .hub{position:absolute;left:50%;top:50%;width:24%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:#3A3D44;box-shadow:0 0 0 1.5px rgba(255,255,255,.55)}
+/* The winding is the filament's own colour and nothing else. It used to carry
+   white hairlines to suggest wound turns, which lightened every roll — and the
+   thinner the ring, the more of it was hairline, so a spool running low showed
+   a paler colour than the one it actually is. Exactly the reading you go to
+   this list to make. The grooves are dark-only now, so the colour can be lost
+   to shadow but never washed out. */
+.disc .wind{position:absolute;left:50%;top:50%;width:calc(24% + 52% * var(--fill,1));aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background-color:var(--c,#888);background-image:repeating-radial-gradient(circle,transparent 0 2px,rgba(0,0,0,.07) 2px 3px);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);transition:width .25s ease}
+/* The bore is a hole, so it is drawn as shadow over the winding rather than as
+   a colour of its own: always darker than the filament, never lighter. It used
+   to be a flat grey disc ringed in white, which on a black roll put a pale
+   circle in the middle of the one colour that has none — and on a 17px chip
+   that ring was a third of the bore's width. */
+.disc .hub{position:absolute;left:50%;top:50%;width:24%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:var(--bore,var(--panel));box-shadow:inset 0 0 0 1px rgba(0,0,0,.22)}
 
 .spool .brand{font-family:var(--display);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;line-height:1.05;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .spool .color{font-size:11px;color:var(--ink-soft);line-height:1.15;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -935,7 +946,7 @@ function spoolHTML(s, n = 1) {
   return `<div class="spool${flash.has(s.id) ? " flash" : ""}${n > 1 ? " stacked" : ""}" data-id="${s.id}" tabindex="0" role="button"
       aria-label="${esc(w.brand)} ${esc(w.material)} ${esc(w.colorName)}${empty ? ", empty" : s.sealed ? ", sealed" : s.low ? ", running low" : ""}${says}">
     ${n > 1 ? `<span class="stack">${n}</span>` : ""}
-    <div class="disc" style="--c:${esc(w.hex)};--fill:${fill(s)}">
+    <div class="disc" style="--c:${esc(w.hex)};--bore:${Colour.bore(w.hex)};--fill:${fill(s)}">
       <div class="flange"></div><div class="wind"></div><div class="hub"></div>
     </div>
     <div class="brand">${esc(w.brand)}</div>
@@ -970,7 +981,7 @@ function spoolChip(s) {
   return `<div class="spool mini${flash.has(s.id) ? " flash" : ""}" data-id="${s.id}" tabindex="0" role="button"
       title="${esc(w.brand)} ${esc(w.colorName)}${s.sealed ? " · sealed" : s.low ? " · running low" : ""}"
       aria-label="${esc(w.brand)} ${esc(w.material)} ${esc(w.colorName)}">
-    <span class="disc" style="--c:${esc(w.hex)};--fill:${fill(s)}">
+    <span class="disc" style="--c:${esc(w.hex)};--bore:${Colour.bore(w.hex)};--fill:${fill(s)}">
       <span class="flange"></span><span class="wind"></span><span class="hub"></span>
     </span>${esc(w.material)}${s.sealed ? `<span class="sealed-dot"></span>` : ""}${(() => {
       const d = dryState(s);
@@ -1485,7 +1496,7 @@ function spoolForm(existing, swatchId) {
   modal(`
     <h2>${existing ? "Edit roll" : "Add a roll"}</h2>
     <div style="display:flex;gap:11px;align-items:center;margin:-4px 0 14px">
-      <div class="disc" style="--c:${esc(w.hex)};--fill:1;width:46px;height:46px">
+      <div class="disc" style="--c:${esc(w.hex)};--bore:${Colour.bore(w.hex)};--fill:1;width:46px;height:46px">
         <div class="flange"></div><div class="wind"></div><div class="hub"></div>
       </div>
       <div style="min-width:0">
@@ -1600,7 +1611,7 @@ function openSpool(id) {
   modal(`
     <h2>${esc(w.brand)} ${esc(w.colorName)}</h2>
     <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">
-      <div class="disc" style="--c:${esc(w.hex)};--fill:${fill(s)};width:58px;height:58px">
+      <div class="disc" style="--c:${esc(w.hex)};--bore:${Colour.bore(w.hex)};--fill:${fill(s)};width:58px;height:58px">
         <div class="flange"></div><div class="wind"></div><div class="hub"></div>
       </div>
       <div>
