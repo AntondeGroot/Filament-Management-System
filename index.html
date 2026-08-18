@@ -123,12 +123,15 @@ button{font:inherit;color:inherit;cursor:pointer}
 .unit.machine .umove:hover{border-color:#EDECE8;color:#EDECE8}
 .unit.dryer .umove{border-color:#A5A198;color:#57534A}
 .unit.over{box-shadow:inset 0 0 0 2px var(--ink)}
-.ucaret{font-size:11px;line-height:1;color:var(--ink-soft);width:14px;flex:none;text-align:center}
+/* Boxed so it reads as a control. A bare caret at this size is decoration —
+   and with the units closed by default, nobody finds what is inside them. */
+.ucaret{font-size:10px;line-height:1;color:var(--ink-soft);flex:none;width:22px;height:22px;
+  display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--rule);border-radius:2px}
 .unit-head{cursor:pointer;user-select:none;border-radius:3px}
 .unit-head[data-grip]{cursor:grab}
 body.dragging .unit-head[data-grip]{cursor:grabbing}
 .unit-head:hover .unit-name{text-decoration:underline}
-.unit.machine .ucaret{color:#8A9099}
+.unit.machine .ucaret{color:#8A9099;border-color:#4A525C}.unit.dryer .ucaret{color:#57534A;border-color:#A5A198}
 .unit.collapsed{padding-bottom:9px}
 .unit.collapsed .unit-head{margin-bottom:0}
 .mini-row{display:flex;flex-wrap:wrap;gap:5px;padding-top:9px;min-height:22px}
@@ -1035,7 +1038,10 @@ function spoolChip(s) {
 
 function unitHTML(u) {
   const used = u.slots.filter(Boolean).length;
-  const open = u.open !== false;
+  /* Collapsed unless asked otherwise: the point of the bench is seeing the
+     whole workshop at once, and six units laid out slot by slot is a page of
+     scrolling before you reach the loose rolls. */
+  const open = u.open === true;
   const foot = u.kind !== "dryer" || !open ? "" : `<div class="vent"><span class="slits"></span></div>`;
   const body = open
     ? `<div class="slots">${u.slots.map((id, i) => {

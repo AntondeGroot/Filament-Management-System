@@ -1,140 +1,140 @@
-# Filament Manager
+# Filament Management System
 
-A single-page app for tracking filament: where every spool is, when it was last
-dried, which colours you own, and what each project used.
+**○ Know where every spool is,**\
+**○ which ones need drying,**\
+**○ which filament to buy,**\
+**○ which prints used which filaments.**
 
-## Files
 
-| | |
-|---|---|
-| `index.html` | the whole app — markup, styles and logic |
-| `service-worker.js` | offline shell + the background drying check |
-| `manifest.webmanifest` | makes it installable to the Android home screen |
-| `icon-*.png` | launcher icons, for the home screen and the APK alike |
-| `capacitor.config.ts`, `android/` | the Android shell — see [Building the APK](#building-the-apk) |
-| `scripts/` | build, icon generation, install-on-device |
+On your phone, offline.
 
-The app itself still has no build step, no dependencies and no bundler: edit
-`index.html`, reload, done. Everything above the line in that table is the whole
-web app, and it is what a static host serves.
+**✖ It does not track your prints and how much filament you have exactly left. You determine when a spool is full, running low or is empty.**
 
-The npm project underneath it exists only to wrap that in an APK. It never
-touches `index.html` — `npm run build` is a copy into `dist/`, because Capacitor
-packages a directory and the repo root also holds `android/` and `node_modules/`.
+**Spool Locations**\
+On the printer, in an AMS, a filament dryer, an airtight box or
+on a shelf. Drag them around, up to 4 at a time if you like.
 
-## Hosting
+<img src="docs/screenshots/spools.png" width="260" alt="The bench: rolls in a printer, an AMS and the dryer">
 
-It has to be served over **HTTPS from a real origin** — service workers and
-notifications are both refused on `file://` and in sandboxed frames. Any static
-host works: GitHub Pages, Cloudflare Pages, Netlify. Drop the four files in a
-repo, point the host at it, done.
+**What needs drying.**\
+A sealed box can last for months, an open shelf weeks, and
+the countdown follows a roll from one to the other.
 
-The app still runs perfectly well opened as a plain file; you just lose the
-service worker, which means no offline cache and no background reminders.
+<img src="docs/screenshots/drying.png" width="260" alt="A roll flagged past its drying window">
 
-## Building the APK
+**What to reorder.** 
+
+<img src="docs/screenshots/reorder.png" width="260" alt="The reorder queue, one roll already ordered">
+
+**Every color you own.**\
+Sorted by color and kept as a record after the last spool is gone. 
+
+<img src="docs/screenshots/swatches.png" width="260" alt="The swatch library, ordered by color">
+
+It also reads a sliced `.3mf` to see which colors a print used, and draws a
+thumbnail from a plain `.stl`.
+
+## Install it
+
+Open the site in Chrome on Android, then **Menu → Add to Home screen**. That is
+the whole thing, and it works offline from then on.
+
+For reminders that arrive while the app is closed, build the APK instead:
 
 ```
 npm install
-npm run android:install      # build, then install over USB
+npm run android:install      # builds and installs over USB
 ```
 
-`scripts/install-android.sh` does the whole chain — collect `dist/`, `cap sync`,
-Gradle, `adb install` — and stops with an explanation rather than a stack trace
-when the phone is locked, unauthorised, or the default JDK is too new for
-Gradle. It needs JDK 21 and the Android SDK's `platform-tools`; set
-`ANDROID_SDK_ROOT` if the SDK isn't in the usual place.
+Needs JDK 21 and the Android SDK's `platform-tools`; set `ANDROID_SDK_ROOT` if
+it is not in the usual place. The script stops with an explanation rather than a
+stack trace when the phone is locked or the default JDK is too new for Gradle.
 
-```
-npm run android:install -- --skip-build   # reinstall the APK that's already built
-npm run assets                            # regenerate launcher icons from icon-512*.png
-```
+## Host it yourself
 
-Reinstalling keeps app data, which matters here: the entire inventory lives in
-the webview's IndexedDB and nowhere else. The script refuses to uninstall on
-your behalf when signing keys don't match, and tells you what it would cost.
+Any static host — GitHub Pages, Cloudflare Pages, Netlify. It has to be **HTTPS
+from a real origin**: service workers and notifications are both refused on
+`file://`. Point the host at the repo and you are done.
 
-Because the APK bundles the app rather than pointing at a hosted URL, every
-change to `index.html` needs a reinstall to reach the phone.
+---
 
-## Installing without the APK
+<details>
+<summary><b>How the reminders actually work</b></summary>
 
-The site is still a normal PWA:
-
-1. Open it in Chrome.
-2. Menu → **Add to Home screen** (or accept the install prompt).
-3. Open it from the home screen at least once.
-4. In the app: **Setup → Reminders → notify me**, and accept the browser prompt.
-
-Step 2 matters. Chrome only grants Periodic Background Sync to *installed*
-apps — a bookmarked tab won't get it.
-
-## How reminders actually work
-
-Which mechanism you get depends on how the app was installed, and the difference
-is worth knowing because it decides whether closing the app costs you the nudge.
+How the app was installed decides whether closing it costs you the nudge.
 
 **From the APK — real alarms.** `@capacitor/local-notifications` hands Android a
-queue of scheduled notifications, one per morning that has something overdue, at
-09:00. They fire whether or not the app is running, they survive a reboot
-(`RECEIVE_BOOT_COMPLETED`), and Android does not get a vote on the timing. The
-queue is rebuilt from scratch after every save and whenever the app comes back
-to the foreground, so it can't drift out of step with the inventory.
+queue of notifications, one per morning that has something overdue, at 09:00.
+They fire whether or not the app is running, and they survive a reboot. The
+queue is rebuilt after every save and whenever the app comes forward, so it
+cannot drift out of step with the inventory. The webview has no Periodic
+Background Sync at all, so this is not a nicety — it is the only thing that
+works there.
 
-The webview has no Periodic Background Sync at all, so this isn't a nicety —
-it's the only thing that works there. The service worker is skipped entirely in
-the APK.
+**From Chrome — best effort.** The app checks on load and once an hour while it
+is open; installed to the home screen, Chrome also wakes the service worker on a
+schedule of its own choosing. `minInterval` is a hint, not a contract. Fine for
+drying a spool, useless for anything time-critical.
 
-**From Chrome — best effort.** Two weaker layers:
+Either way: at most one notification a day, and only for rolls genuinely past
+their window. **iOS gets the browser path only** — Safari has no Periodic
+Background Sync. Capacitor is already set up, so `npx cap add ios` would get
+real alarms there without touching `index.html`.
+</details>
 
-- **While the page is open** — the app checks on load and once an hour. Works
-  in every browser, on every platform, installed or not.
-- **While it's closed** — Chrome wakes the service worker on a schedule and it
-  checks then. Requires installation to the home screen.
+<details>
+<summary><b>How dryness is tracked</b></summary>
 
-**Chrome decides that frequency.** `minInterval` is a hint, not a contract; the
-actual cadence depends on how often you use the app, and on battery and network
-state. A couple of checks a day is typical for an app you open regularly, and
-it can go quiet for a while if you don't. Not a good mechanism for anything
-time-critical — and drying a spool isn't.
+Not as a date. Four weeks in a sealed box costs a roll far less than four weeks
+in an AMS, so a single drying date cannot answer how dry anything is — it would
+bill box time at AMS rates, and hand it all back the moment the roll moved home.
 
-Either way you get at most one notification per day, and only for spools that
-are genuinely past the window for wherever they're sitting.
+Dryness is a **fraction spent**. Each stay bills for itself as the roll leaves,
+the total banks on the spool, and the stay in progress adds on top. Four weeks
+in a 26-week box is 4/26; two more in a 12-week AMS adds 2/12. A dryer has no
+window, so it costs nothing and loses nothing. Moving a roll can never make it
+drier than it was.
 
-**iOS still gets the browser path only** — Safari has no Periodic Background
-Sync. Capacitor is already set up, though, so `npx cap add ios` would get the
-same scheduled alarms there without touching `index.html`.
+Taking rolls out of the dryer asks whether they came out dry — once per visit
+rather than once per day, so a roll dried this morning and put back in this
+afternoon gets asked about again.
 
-## Where the drying rules live
+`src/drying.js` holds the arithmetic. `index.html` recomputes `state.due` on
+every save and everything downstream only reads that, so the service worker and
+the Android alarm queue cannot disagree about the rules.
+</details>
 
-Only in `index.html`. The page computes a flat list — `state.due`, entries of
-`{name, at}` — every time it saves. Everything downstream just reads that list:
-the service worker compares the dates against today, and `alarms()` regroups
-them into one scheduled notification per morning. So there's exactly one
-implementation of the windows, the per-type intervals and the sealed/dryer
-exemptions, and neither the worker nor the Android queue can drift out of step
-with them.
+<details>
+<summary><b>Layout, storage and the scripts</b></summary>
 
-## Storage
+`index.html` is the app — markup, styles and logic, no bundler. `src/` holds the
+parts lifted out of it, each under 200 lines and imported as ES modules.
+`npm run build` is a copy into `dist/`, because Capacitor packages a directory
+and the repo root also holds `android/` and `node_modules/`.
 
-Everything lives in IndexedDB under database `filament-manager`, store `kv`,
-key `state`. The service worker reads and writes the same record, which is why
-IndexedDB rather than `localStorage` — workers can't see the latter.
+| | |
+|---|---|
+| `npm test` | the suite, which also enforces the 200-line ceiling |
+| `npm run screenshots` | regenerates the images above from the real app |
+| `npm run assets` | launcher icons, from `icon-512*.png` |
+| `npm run polymaker` | refreshes Polymaker's published hex codes |
 
-Every record carries an `updatedAt` timestamp and deletions leave tombstones in
-`state.deleted`. Nothing uses them yet; they're there so that syncing between
-two devices later is a merge rather than a rewrite. Timestamps are stamped by
-diffing against a snapshot on each save, so new features get them for free.
+Everything lives in IndexedDB under `filament-manager` / `kv` / `state`. The
+service worker reads and writes the same record, which is why IndexedDB rather
+than `localStorage` — workers cannot see the latter. Records carry `updatedAt`
+and deletions leave tombstones, so syncing two devices later is a merge rather
+than a rewrite. Which boxes you folded shut is deliberately left out of that: it
+belongs to the device in your hand, not to the data.
+</details>
 
-Collapsed/expanded state is deliberately excluded from that diff — which boxes
-you folded shut belongs to the device in your hand, not to the data.
+<details>
+<summary><b>Next, if you want it</b></summary>
 
-## Next, if you want it
-
-- **Google Drive sync.** `drive.file` scope, which is non-sensitive and needs no
-  OAuth verification review. The app creates and owns a folder in the user's own
-  Drive; it can't read folders it didn't make. Split the state into
-  `inventory.json` (mostly written from the phone) and `projects.json` (mostly
-  written from the desktop) so the two devices rarely touch the same document.
-- **A Google Picker import**, if you want to pull in files from folders the app
-  didn't create.
+- **Google Drive sync.** `drive.file` scope is non-sensitive and needs no OAuth
+  verification review — the app creates and owns a folder in your own Drive and
+  cannot read folders it did not make. Split the state into `inventory.json`
+  (written from the phone) and `projects.json` (written from the desktop) so the
+  two devices rarely touch the same document.
+- **A Google Picker import**, to pull in files from folders the app did not make.
+- **Finish the split** of `index.html` into `src/` modules.
+</details>
