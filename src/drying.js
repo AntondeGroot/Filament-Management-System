@@ -24,3 +24,30 @@ export function needsDryingAnswer({ fromKind, toKind, toZone, spools, today }) {
    "did it come out dry" is answerable while standing at the dryer. */
 export const dryingQuestion = n =>
   (n === 1 ? "Did it come out dry?" : `Did these ${n} come out dry?`);
+
+/* ---------------- how much of a roll's dryness is gone ----------------
+ *
+ * A date alone cannot answer this. Four weeks in a sealed box costs a roll far
+ * less than four weeks in an AMS, so "dried on the 3rd" only means something
+ * alongside where it has been since. Charging the whole elapsed time at the
+ * current place's rate — which is what a single date forces — bills box time at
+ * AMS prices, and worse, hands the time back when the roll is moved home again.
+ *
+ * So dryness is a fraction spent rather than a date passed. Each stay bills for
+ * itself when the roll leaves, the total is banked, and the stay in progress is
+ * added on top. Moving a roll can then never make it drier than it was. */
+
+/* What a stay of `days` costs somewhere a roll keeps for `windowDays`. A dryer
+   has no window and costs nothing, which is the point of a dryer. */
+export const spent = (days, windowDays) =>
+  (windowDays > 0 && days > 0 ? days / windowDays : 0);
+
+/* Everything banked from previous places, plus the stay in progress. 1 means
+   the roll is due; past 1 it is overdue by that much again. */
+export const dryUsed = (banked, days, windowDays) =>
+  (banked || 0) + spent(days, windowDays);
+
+/* How long the roll has left if it stays where it is. Somewhere with no window
+   it never runs out, which Infinity says more honestly than a huge number. */
+export const daysLeft = (used, windowDays) =>
+  (windowDays > 0 ? Math.max(0, (1 - used) * windowDays) : Infinity);

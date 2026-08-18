@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { openApp, setBench } from "./harness.js";
 
+/* A due date is now projected from today at the rate of wherever the roll is,
+   rather than being driedAt plus a window — so these need a fixed clock. Set
+   two weeks after the drying date, which is early enough that nothing here has
+   run out, and the two ways of reckoning agree exactly. */
+const NOW = "2026-06-15T09:00:00";
+
 /* Small factories so a test states only what it is about. A spool is an
    instance of a swatch — the swatch carries the identity and the name that ends
    up in the notification. */
@@ -10,7 +16,7 @@ const spool = (id, swatchId, extra = {}) =>
 
 describe("dueList()", () => {
   it("dates each spool from its dried date plus the window for where it sits", async () => {
-    const { run, close } = await openApp();
+    const { run, close } = await openApp({ now: NOW });
     setBench(run, {
       swatches: [swatch("sw-a", "Basic Black"), swatch("sw-b", "Sky Blue")],
       spools: [
@@ -33,7 +39,7 @@ describe("dueList()", () => {
   });
 
   it("excludes sealed spools", async () => {
-    const { run, close } = await openApp();
+    const { run, close } = await openApp({ now: NOW });
     setBench(run, {
       swatches: [swatch("sw-a", "Basic Black"), swatch("sw-b", "Sky Blue")],
       spools: [
@@ -54,7 +60,7 @@ describe("dueList()", () => {
   });
 
   it("excludes spools queued for reorder", async () => {
-    const { run, close } = await openApp();
+    const { run, close } = await openApp({ now: NOW });
     /* Neither spool is in a unit, so both take the same LOOSE_DRY window of 4
        weeks. That leaves the reorder queue as the only difference between
        them — a spare roll on the pile is still filament you own and dry, one
@@ -75,7 +81,7 @@ describe("dueList()", () => {
   });
 
   it("is empty when drying is not being tracked", async () => {
-    const { run, close } = await openApp();
+    const { run, close } = await openApp({ now: NOW });
     const bench = {
       swatches: [swatch("sw-a", "Basic Black")],
       spools: [spool("sp-a", "sw-a", { driedAt: "2026-06-01" })],
