@@ -10,27 +10,28 @@ On your phone, offline.
 
 **✖ It does not track your prints and how much filament you have exactly left. You determine when a spool is full, running low or is empty.**
 
-**Spool Locations**\
+**▣ Spool Locations**\
 On the printer, in an AMS, a filament dryer, an airtight box or
 on a shelf. Drag them around, up to 4 at a time if you like.
 
 <img src="docs/screenshots/spools.png" width="260" alt="The bench: rolls in a printer, an AMS and the dryer">
 
-**What needs drying.**\
+**▣ What needs drying.**\
 A sealed box can last for months, an open shelf weeks, and
 the countdown follows a roll from one to the other.
 
 <img src="docs/screenshots/drying.png" width="260" alt="A roll flagged past its drying window">
 
-**What to reorder.** 
+**▣ What to reorder.** 
 
 <img src="docs/screenshots/reorder.png" width="260" alt="The reorder queue, one roll already ordered">
 
-**Every color you own.**\
+**▣ Every color you own.**\
 Sorted by color and kept as a record after the last spool is gone. 
 
 <img src="docs/screenshots/swatches.png" width="260" alt="The swatch library, ordered by color">
 
+**▣ Which filaments you used for which models**\
 It also reads a sliced `.3mf` to see which colors a print used, and draws a
 thumbnail from a plain `.stl`.
 
