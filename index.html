@@ -244,7 +244,8 @@ body.dragging{cursor:grabbing;user-select:none}
 .fil{display:flex;align-items:center;gap:6px;margin-top:5px}
 .fil.read{margin-top:2px}
 .fil .nm{flex:1;min-width:0;font-size:12px;overflow-wrap:anywhere}
-.fil select{flex:1;min-width:0;padding:2px 4px;border:1px solid var(--rule);border-radius:2px;background:#fff;font-family:var(--body);font-size:12px;color:var(--ink)}
+.fil select,.fil .pick{flex:1;min-width:0;padding:4px 6px;border:1px solid var(--rule);border-radius:2px;background:#fff;font-family:var(--body);font-size:12px;color:var(--ink)}
+.fil .pick{text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fil .g{font-family:var(--mono);font-size:10px;color:var(--ink-soft)}
 .proj .acts{display:flex;gap:6px;margin-top:7px}
 /* Floated, not a column of its own: the name wraps beside it and the color
@@ -1817,11 +1818,13 @@ function folderOptions(skipId, sel) {
  * surprise rather than a convenience. */
 let editing = null;
 
-/* What a color row says when it is only being read. */
-const useLabel = u => {
+/* What a color row says: the swatch it landed on, or what the slicer called a
+   filament nothing matched. `none` is for the row that has neither yet — a
+   statement while you read the list, an invitation while you edit it. */
+const useLabel = (u, none = "No color picked") => {
   const w = swatch(u.swatchId);
   if (w) return `${w.brand} ${w.colorName} · ${w.material}`;
-  return u.type ? `Unmatched — ${u.type} ${u.color}` : "No color picked";
+  return u.type ? `Unmatched — ${u.type} ${u.color}` : none;
 };
 
 /* Geometry has no color of its own, so it wears the first one you assigned. */
@@ -1831,8 +1834,18 @@ function projectTint(p) {
 }
 
 function renderProjects() {
-  const opts = sel => sortedSwatches().map(w =>
-    `<option value="${w.id}"${w.id === sel ? " selected" : ""}>${esc(w.brand)} ${esc(w.colorName)} · ${esc(w.material)}</option>`).join("");
+  /* A file's colors read in the same order as the swatch list — rainbow, then
+     earths, then neutrals — so two files sharing a palette look alike and a
+     long list is scannable. Anything the library has no answer for sits at the
+     end, in the order the slicer named them.
+
+     Reading and editing alike, so a color you pick lands where you will look
+     for it next. Each row keeps the slot it came from: the order on screen is
+     a view, and the × has to remove the filament you actually pointed at, not
+     the one now sitting in that position. */
+  const rank = new Map(sortedSwatches().map((w, i) => [w.id, i]));
+  const at = u => (rank.has(u.swatchId) ? rank.get(u.swatchId) : 1e9);
+  const inOrder = uses => uses.map((u, slot) => [u, slot]).sort((a, b) => at(a[0]) - at(b[0]));
 
   const card = (p, depth) => {
     const editable = editing === p.id;
@@ -1847,15 +1860,12 @@ function renderProjects() {
         <div class="t">${esc(p.title)}</div>
         <div class="fn">${esc(p.name)}${p.note ? " · " + esc(p.note) : ""}</div>
         <div class="d">${hrs}${g ? g.toFixed(0) + " g · " : ""}added ${esc(fmtDate(p.added))}</div>
-        ${p.uses.map((u, i) => {
+        ${inOrder(p.uses).map(([u, i]) => {
           const w = swatch(u.swatchId);
           const dot = `<span class="dot" style="background:${esc(w ? w.hex : u.color || "#B9B7B0")}"></span>`;
           const grams = `<span class="g">${u.grams ? u.grams + " g" : ""}</span>`;
           return editable ? `<div class="fil">${dot}
-            <select data-proj="${p.id}" data-use="${i}">
-              <option value=""${w ? "" : " selected"}>${u.type ? `Unmatched — ${esc(u.type)} ${esc(u.color)}` : "Pick a color"}</option>
-              ${opts(u.swatchId)}
-            </select>
+            <button class="pick" data-pickuse="${p.id}|${i}">${esc(useLabel(u, "Pick a color"))}</button>
             ${grams}
             <button class="btn ghost tiny" data-usedel="${p.id}|${i}" aria-label="Remove color">×</button>
           </div>` : `<div class="fil read">${dot}<span class="nm">${esc(useLabel(u))}</span>${grams}</div>`;
@@ -2031,15 +2041,6 @@ function askReplace(recs) {
 
 document.getElementById("dropzone").onclick = () => document.getElementById("fileinput").click();
 document.getElementById("fileinput").onchange = e => { intake(e.target.files); e.target.value = ""; };
-
-document.addEventListener("change", e => {
-  const sel = e.target.closest("[data-use]");
-  if (!sel) return;
-  const p = state.projects.find(x => x.id === sel.dataset.proj);
-  if (!p) return;
-  p.uses[+sel.dataset.use].swatchId = sel.value || null;
-  save(); render();
-});
 
 /* ============================ reminders ============================ */
 
@@ -3131,6 +3132,16 @@ document.addEventListener("click", e => {
   if (ua) {
     const p = state.projects.find(x => x.id === ua.dataset.useadd);
     if (p) { p.uses.push({ swatchId: null, grams: 0 }); save(); render(); }
+    return;
+  }
+  /* The same sheet the bench picks colors with: sorted by hue, painted, and one
+     tap from adding a color the library is missing. A dropdown of names on a
+     white background made you read what you should be able to see. */
+  const pu = e.target.closest("[data-pickuse]");
+  if (pu) {
+    const [pid, i] = pu.dataset.pickuse.split("|");
+    const p = state.projects.find(x => x.id === pid);
+    if (p && p.uses[+i]) swatchPicker(id => { p.uses[+i].swatchId = id; save(); render(); });
     return;
   }
   const ud = e.target.closest("[data-usedel]");
