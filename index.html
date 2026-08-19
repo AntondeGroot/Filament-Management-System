@@ -571,7 +571,8 @@ body.dragging{cursor:grabbing;user-select:none}
   import * as Batch from "./src/batch.js";
   import * as Color from "./src/color.js";
   import * as Alarms from "./src/alarms.js";
-  Object.assign(window, { Mesh, Drying, Polymaker, Batch, Color, Alarms });
+  import * as Intake from "./src/intake.js";
+  Object.assign(window, { Mesh, Drying, Polymaker, Batch, Color, Alarms, Intake });
   window.bridged();
 </script>
 
@@ -1776,19 +1777,10 @@ function newProject(file, kind) {
            note: "", folder: null, added: today(), uses: [], thumb: null, seconds: 0 };
 }
 
-/* Guess which color in the library a filament entry came off. */
-function matchSwatch(type, color) {
-  const want = Color.rgb(color);
-  let best = null, score = Infinity;
-  state.swatches.forEach(w => {
-    const got = Color.rgb(w.hex);
-    const dc = Math.hypot(want[0] - got[0], want[1] - got[1], want[2] - got[2]);
-    const a = family(w.material), b = family(type);
-    const s = dc + (a === b ? 0 : 240);
-    if (s < score) { score = s; best = w.id; }
-  });
-  return score < 380 ? best : null;
-}
+/* Guess which color in the library a filament entry came off. The material is
+   read here and handed over as a family, so the arithmetic stays colour-only. */
+const matchSwatch = (type, color) => Color.nearest(
+  state.swatches.map(w => ({ id: w.id, hex: w.hex, family: family(w.material) })), color, family(type));
 
 /* ---------- folders ---------- */
 const folder = id => state.folders.find(f => f.id === id);
@@ -1992,20 +1984,49 @@ function newFolder(parent) {
 async function intake(list, into = null) {
   const files = [...list].filter(f => /\.(3mf|stl)$/i.test(f.name));
   if (!files.length) { toast("Pick .3mf or .stl files."); return; }
-  let matched = 0;
+  const recs = [];
   for (const f of files) {
     const rec = /\.3mf$/i.test(f.name) ? await read3mf(f) : await readStl(f);
     rec.folder = into;
-    matched += rec.uses.filter(u => u.swatchId).length;
-    state.projects.unshift(rec);
+    recs.push(rec);
   }
+  /* Anything already logged waits for an answer; the rest goes straight in. */
+  const again = recs.filter(r => Intake.alreadyLogged(r, state.projects));
+  const fresh = recs.filter(r => !again.includes(r));
+  Intake.logAll(state.projects, fresh);
   const dest = folder(into);
   if (dest) dest.open = true;
   setTab("projects");
   save(); render();
-  toast(files.length > 1 ? `${files.length} files added.`
-    : matched ? `${files[0].name} — ${matched} color${matched > 1 ? "s" : ""} matched.`
-    : `${files[0].name} added.`);
+  if (fresh.length) {
+    const matched = fresh.reduce((n, r) => n + r.uses.filter(u => u.swatchId).length, 0);
+    toast(fresh.length > 1 ? `${fresh.length} files added.`
+      : matched ? `${fresh[0].name} — ${matched} color${matched > 1 ? "s" : ""} matched.`
+      : `${fresh[0].name} added.`);
+  }
+  if (again.length) askReplace(again);
+}
+
+/* A file picked twice is nearly always the same model re-sliced, so the useful
+   question is which record survives rather than whether you meant to pick it.
+   Walking away from the sheet imports neither — the log is left as it was. */
+function askReplace(recs) {
+  const one = recs.length === 1;
+  modal(`<h2>Already in the log</h2>
+    <p class="ask">${one ? `<b>${esc(recs[0].name)}</b> is` : `${recs.length} of those files are`} already here.
+      Replacing takes the preview, print time and weights from the file you just picked, and dates it today.
+      The colors you picked stay, and so do the name, folder and note you gave it.</p>
+    <div class="sheet-foot"><span class="spacer"></span>
+      <button class="btn ghost" data-close>Cancel</button><button class="btn ghost" id="ag-copy">Add ${one ? "a copy" : "copies"}</button>
+      <button class="btn primary" id="ag-swap">Replace</button>
+    </div>`, scrim => {
+    const done = (verb, plural) => {
+      close(); save(); render();
+      toast(one ? `${recs[0].name} ${verb}.` : `${recs.length} ${plural}.`);
+    };
+    scrim.querySelector("#ag-copy").onclick = () => { Intake.logAll(state.projects, recs); done("added again", "copies added"); };
+    scrim.querySelector("#ag-swap").onclick = () => { Intake.replaceAll(state.projects, recs); done("updated", "files updated"); };
+  });
 }
 
 document.getElementById("dropzone").onclick = () => document.getElementById("fileinput").click();
@@ -2319,30 +2340,7 @@ document.addEventListener("click", e => {
 const swatchPaint = sw => (sw.transparent
   ? `--solid:${esc(sw.hex)};--tint:${esc(sw.hex)}${Color.CLEAR_HEX};color:${Color.readable(sw.hex)}`
   : `background:${esc(sw.hex)};color:${Color.readable(sw.hex)}`);
-function sortedSwatches() {
-  const band = t => Math.floor(((t.h - Color.HUE_START + 360) % 360) / Color.HUE_BAND);
-  const earthBand = t => Math.floor(((t.h - Color.EARTH_HUE[0] + 360) % 360) / Color.EARTH_BAND);
-  return [...state.swatches].sort((x, y) => {
-    const A = Color.oklch(x.hex), B = Color.oklch(y.hex);
-    const ta = Color.colorTier(A), tb = Color.colorTier(B);
-    if (ta !== tb) return ta - tb;
-
-    /* Neutrals have no hue worth reading — a plain run from white to black. */
-    if (ta === 2) return B.L - A.L;
-
-    /* Earths keep their hue but band twice as wide, because at this chroma hue
-       is a weaker signal and the useful grouping is coarse: pinks, then
-       peaches, then tans. Light to dark inside each. */
-    if (ta === 1) {
-      const ea = earthBand(A), eb = earthBand(B);
-      return ea !== eb ? ea - eb : B.L - A.L;
-    }
-
-    const ba = band(A), bb = band(B);
-    if (ba !== bb) return ba - bb;
-    return B.C - A.C || B.L - A.L;
-  });
-}
+const sortedSwatches = () => Color.sortSwatches(state.swatches);
 const swatchStock = sw => state.spools.filter(s => s.swatchId === sw.id && !inReorder(s.id)).length;
 
 /* Two independent axes. PLA and PLA+ are the same shelf and PETG is not — but

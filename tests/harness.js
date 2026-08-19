@@ -20,6 +20,7 @@ import { readFileSync } from "node:fs";
 
 import * as alarms from "../src/alarms.js";
 import * as batch from "../src/batch.js";
+import * as intake from "../src/intake.js";
 import * as color from "../src/color.js";
 import * as drying from "../src/drying.js";
 import * as mesh from "../src/mesh.js";
@@ -34,7 +35,7 @@ const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
  * The same handover is performed here instead, from Node's own imports. It has
  * to happen in beforeParse: the inline script runs during construction and
  * reaches for these while rendering the first frame. */
-const MODULES = { Alarms: alarms, Batch: batch, Color: color, Drying: drying, Mesh: mesh, Polymaker: polymaker };
+const MODULES = { Alarms: alarms, Batch: batch, Color: color, Drying: drying, Intake: intake, Mesh: mesh, Polymaker: polymaker };
 
 /* Boots a fresh copy of the app.
  *

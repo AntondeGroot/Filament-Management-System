@@ -158,3 +158,56 @@ export function bodyHex(data) {
 export const BORE_PALE = 0.9;
 export const bore = hex =>
   (oklch(hex).L > BORE_PALE ? "rgba(0,0,0,.42)" : "var(--panel)");
+
+/* ---------------- a library of swatches, in the order you read it ----------
+ *
+ * The bands and tiers above decide where one color sits; this is the whole
+ * shelf laid out with them. Rainbow first, then earths, then neutrals, and
+ * inside each band vivid before muted — the order the eye already expects,
+ * which is what makes a colour findable without reading a single label. */
+export function sortSwatches(swatches) {
+  const band = t => Math.floor(((t.h - HUE_START + 360) % 360) / HUE_BAND);
+  const earthBand = t => Math.floor(((t.h - EARTH_HUE[0] + 360) % 360) / EARTH_BAND);
+  return [...swatches].sort((x, y) => {
+    const A = oklch(x.hex), B = oklch(y.hex);
+    const ta = colorTier(A), tb = colorTier(B);
+    if (ta !== tb) return ta - tb;
+
+    /* Neutrals have no hue worth reading — a plain run from white to black. */
+    if (ta === 2) return B.L - A.L;
+
+    /* Earths keep their hue but band twice as wide, because at this chroma hue
+       is a weaker signal and the useful grouping is coarse: pinks, then
+       peaches, then tans. Light to dark inside each. */
+    if (ta === 1) {
+      const ea = earthBand(A), eb = earthBand(B);
+      return ea !== eb ? ea - eb : B.L - A.L;
+    }
+
+    const ba = band(A), bb = band(B);
+    if (ba !== bb) return ba - bb;
+    return B.C - A.C || B.L - A.L;
+  });
+}
+
+/* Which swatch a filament off a slicer is closest to.
+ *
+ * Straight RGB distance, plus a penalty for the wrong material family that is
+ * larger than any two colors are apart — so a PETG red is never the answer
+ * while any PLA is in the library. Past the cutoff nothing is close enough to
+ * claim: an unmatched filament you can point at a swatch yourself is more use
+ * than a confident wrong one. Swatches come in already carrying their family,
+ * because what counts as one is a question about materials, not about color. */
+const FAMILY_MISS = 240, TOO_FAR = 380;
+
+export function nearest(swatches, hex, family) {
+  const want = rgb(hex);
+  let best = null, score = Infinity;
+  for (const w of swatches) {
+    const got = rgb(w.hex);
+    const s = Math.hypot(want[0] - got[0], want[1] - got[1], want[2] - got[2])
+      + (w.family === family ? 0 : FAMILY_MISS);
+    if (s < score) { score = s; best = w.id; }
+  }
+  return score < TOO_FAR ? best : null;
+}

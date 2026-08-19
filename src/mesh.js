@@ -42,18 +42,65 @@ export async function unzip(buf, want) {
 
 const attr = (tag, k) => (tag.match(new RegExp(k + '="([^"]*)"')) || [])[1] || "";
 
-/* Shrink the plate preview so a long project list still fits in storage. */
+/* Where the picture actually is.
+ *
+ * A slicer photographs the whole build plate, so a keychain arrives as a speck
+ * in the middle of an empty sheet. Shown in a 62px square that is nearly all
+ * margin, and the margin is what the eye has to look past to tell one file
+ * from another.
+ *
+ * Empty means transparent, or — when the corner pixel is opaque, so the plate
+ * was drawn on a filled background — close enough to that corner's color.
+ * Reading the background off the corner rather than assuming white is what
+ * lets this work on the dark previews some slicers write. A picture with no
+ * margin at all reports its full size and nothing is cropped. */
+const TRANSPARENT = 16;     /* below this alpha there is nothing to see */
+const SAME_COLOR = 12;      /* per channel, against the corner */
+
+export function contentBox(data, w, h) {
+  const at = (x, y) => (y * w + x) * 4;
+  const flat = data[3] >= TRANSPARENT;
+  const empty = i => data[i + 3] < TRANSPARENT || (flat
+    && Math.abs(data[i] - data[0]) < SAME_COLOR
+    && Math.abs(data[i + 1] - data[1]) < SAME_COLOR
+    && Math.abs(data[i + 2] - data[2]) < SAME_COLOR);
+
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (empty(at(x, y))) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      y1 = y;
+    }
+  }
+  return x1 < x0 ? { x: 0, y: 0, w, h } : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
+/* Crop the plate preview to what is on it, and shrink it so a long project
+   list still fits in storage. Kept square: the card scales a thumbnail to fill
+   its box, and a square one arrives having lost nothing to that. */
 export function shrink(bytes) {
   return new Promise(res => {
     const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
     const img = new Image();
     img.onload = () => {
+      const full = document.createElement("canvas");
+      full.width = img.width; full.height = img.height;
+      const fg = full.getContext("2d");
+      fg.drawImage(img, 0, 0);
+      const box = contentBox(fg.getImageData(0, 0, img.width, img.height).data, img.width, img.height);
+
+      const side = Math.max(box.w, box.h) * 1.08;    /* a little air around the model */
       const c = document.createElement("canvas");
-      const k = Math.min(1, 124 / Math.max(img.width, img.height));
-      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.width = c.height = Math.round(Math.min(124, side));
       const g = c.getContext("2d");
       g.fillStyle = "#F2F1ED"; g.fillRect(0, 0, c.width, c.height);
-      g.drawImage(img, 0, 0, c.width, c.height);
+      /* Centred on the model, so a crop that runs off the edge of a picture
+         taken tight to one side shows background rather than sliding across. */
+      g.drawImage(img, box.x + box.w / 2 - side / 2, box.y + box.h / 2 - side / 2,
+        side, side, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url);
       res(c.toDataURL("image/jpeg", 0.7));
     };
