@@ -6,8 +6,8 @@
  *
  * Two kinds of name live in that realm, and they are reached differently:
  *
- *   - `function` declarations (dueList, alarms, migrate, emptyBench…) become
- *     properties of the window, so `win.alarms` works.
+ *   - `function` declarations (dueList, migrate, emptyBench…) become
+ *     properties of the window, so `win.dueList` works.
  *   - Top-level `const` and `let` (state, DEFAULT_DRY, dryingOn…) go to the
  *     global *lexical* environment, which is not the window object. They are
  *     only reachable from code evaluated inside the realm — hence `run`.
@@ -18,6 +18,7 @@
 import { JSDOM } from "jsdom";
 import { readFileSync } from "node:fs";
 
+import * as alarms from "../src/alarms.js";
 import * as batch from "../src/batch.js";
 import * as colour from "../src/colour.js";
 import * as drying from "../src/drying.js";
@@ -33,7 +34,7 @@ const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
  * The same handover is performed here instead, from Node's own imports. It has
  * to happen in beforeParse: the inline script runs during construction and
  * reaches for these while rendering the first frame. */
-const MODULES = { Batch: batch, Colour: colour, Drying: drying, Mesh: mesh, Polymaker: polymaker };
+const MODULES = { Alarms: alarms, Batch: batch, Colour: colour, Drying: drying, Mesh: mesh, Polymaker: polymaker };
 
 /* Boots a fresh copy of the app.
  *
@@ -108,6 +109,13 @@ export function stubDragEnvironment(run) {
     });
   })()`);
 }
+
+/* Sheets ask whether the pointer is coarse before deciding to focus a field,
+   and JSDOM has no matchMedia at all — without this the modal throws on its way
+   up, and the throw is swallowed by the event handler that opened it. "Not a
+   phone" is both the desktop answer and the branch that does something. */
+export const stubMedia = run =>
+  run(`globalThis.matchMedia = query => ({ matches: false, media: query });`);
 
 /* Runs the frames the drag has queued, once each. */
 export const frames = run => run(`(() => {

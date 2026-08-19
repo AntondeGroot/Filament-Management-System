@@ -243,9 +243,14 @@ body.dragging{cursor:grabbing;user-select:none}
 .proj .t{font-weight:600;font-size:13px;overflow-wrap:anywhere}
 .proj .d{font-family:var(--mono);font-size:11px;color:var(--ink-soft);margin-top:2px}
 .fil{display:flex;align-items:center;gap:6px;margin-top:5px}
+.fil.read{margin-top:2px}
+.fil .nm{flex:1;min-width:0;font-size:12px;overflow-wrap:anywhere}
 .fil select{flex:1;min-width:0;padding:2px 4px;border:1px solid var(--rule);border-radius:2px;background:#fff;font-family:var(--body);font-size:12px;color:var(--ink)}
 .fil .g{font-family:var(--mono);font-size:10px;color:var(--ink-soft)}
 .proj .acts{display:flex;gap:6px;margin-top:7px}
+/* Floated, not a column of its own: the name wraps beside it and the colour
+   list underneath still gets the full width of the card. */
+.proj .edit{float:right;margin-left:8px}
 .frow{display:flex;align-items:center;gap:6px;padding:5px 4px;border-radius:2px}
 .frow.over,.proj.over{background:rgba(0,0,0,.07);box-shadow:inset 0 0 0 1px var(--ink)}
 .caret{background:none;border:0;padding:0 2px;font-size:11px;color:var(--ink-soft);line-height:1}
@@ -333,6 +338,7 @@ body.dragging{cursor:grabbing;user-select:none}
 .readout{display:flex;gap:9px;align-items:center;margin-top:11px}
 .readout .chip{width:36px;height:36px;border-radius:3px;border:1px solid var(--ink);flex:0 0 auto}
 .readout .hexcode{font-family:var(--mono);font-size:15px;letter-spacing:.04em}
+.sheet .ask{font-size:13px;line-height:1.45;color:var(--ink-soft);margin:0}
 .sheet-foot{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
 .sheet-foot .spacer{flex:1}
 
@@ -565,7 +571,8 @@ body.dragging{cursor:grabbing;user-select:none}
   import * as Polymaker from "./src/polymaker.js";
   import * as Batch from "./src/batch.js";
   import * as Colour from "./src/colour.js";
-  Object.assign(window, { Mesh, Drying, Polymaker, Batch, Colour });
+  import * as Alarms from "./src/alarms.js";
+  Object.assign(window, { Mesh, Drying, Polymaker, Batch, Colour, Alarms });
   window.bridged();
 </script>
 
@@ -1808,6 +1815,24 @@ function folderOptions(skipId, sel) {
   return out.join("");
 }
 
+/* Only one file is ever open for editing. Colour pickers and their × buttons
+ * live behind that: the file list is something you scroll past with a thumb,
+ * and a picker you can hit by accident is a colour reassigned without anyone
+ * noticing — the accident nothing warns you about, because to the app it looks
+ * exactly like the edit you meant. Reading is the default; editing you ask for.
+ *
+ * Not saved with the bench. Which file you happened to be editing is not part
+ * of the inventory, and coming back to a file left open a week ago would be a
+ * surprise rather than a convenience. */
+let editing = null;
+
+/* What a colour row says when it is only being read. */
+const useLabel = u => {
+  const w = swatch(u.swatchId);
+  if (w) return `${w.brand} ${w.colorName} · ${w.material}`;
+  return u.type ? `Unmatched — ${u.type} ${u.color}` : "No colour picked";
+};
+
 /* Geometry has no colour of its own, so it wears the first one you assigned. */
 function projectTint(p) {
   const u = (p.uses || []).find(x => x.swatchId && swatch(x.swatchId));
@@ -1819,6 +1844,7 @@ function renderProjects() {
     `<option value="${w.id}"${w.id === sel ? " selected" : ""}>${esc(w.brand)} ${esc(w.colorName)} · ${esc(w.material)}</option>`).join("");
 
   const card = (p, depth) => {
+    const editable = editing === p.id;
     const g = p.uses.reduce((n, u) => n + (u.grams || 0), 0);
     const hrs = p.seconds ? Math.floor(p.seconds / 3600) + "h " + Math.round(p.seconds % 3600 / 60) + "m · " : "";
     return `<div class="proj" draggable="true" data-drag-proj="${p.id}" style="margin-left:${depth * 14}px">
@@ -1826,25 +1852,27 @@ function renderProjects() {
         ? `<div class="thumb mesh" style="--img:url(${p.thumb});--tint:${esc(projectTint(p))}"></div>`
         : `<div class="thumb" ${p.thumb ? `style="background-image:url(${p.thumb})"` : ""}>${p.thumb ? "" : esc((p.kind || "3mf").toUpperCase())}</div>`}
       <div class="body">
+        <button class="btn ghost tiny edit" data-projedit="${p.id}">${editable ? "Done" : "Edit"}</button>
         <div class="t">${esc(p.title)}</div>
         <div class="fn">${esc(p.name)}${p.note ? " · " + esc(p.note) : ""}</div>
         <div class="d">${hrs}${g ? g.toFixed(0) + " g · " : ""}added ${esc(fmtDate(p.added))}</div>
         ${p.uses.map((u, i) => {
           const w = swatch(u.swatchId);
-          return `<div class="fil">
-            <span class="dot" style="background:${esc(w ? w.hex : u.color || "#B9B7B0")}"></span>
+          const dot = `<span class="dot" style="background:${esc(w ? w.hex : u.color || "#B9B7B0")}"></span>`;
+          const grams = `<span class="g">${u.grams ? u.grams + " g" : ""}</span>`;
+          return editable ? `<div class="fil">${dot}
             <select data-proj="${p.id}" data-use="${i}">
               <option value=""${w ? "" : " selected"}>${u.type ? `Unmatched — ${esc(u.type)} ${esc(u.color)}` : "Pick a colour"}</option>
               ${opts(u.swatchId)}
             </select>
-            <span class="g">${u.grams ? u.grams + " g" : ""}</span>
+            ${grams}
             <button class="btn ghost tiny" data-usedel="${p.id}|${i}" aria-label="Remove colour">×</button>
-          </div>`;
+          </div>` : `<div class="fil read">${dot}<span class="nm">${esc(useLabel(u))}</span>${grams}</div>`;
         }).join("")}
-        <div class="acts">
+        ${editable ? `<div class="acts">
           <button class="btn ghost tiny" data-useadd="${p.id}">+ Colour</button>
           <button class="btn ghost tiny" data-projmenu="${p.id}">Rename / move</button>
-        </div>
+        </div>` : ""}
       </div>
     </div>`;
   };
@@ -1921,7 +1949,22 @@ function projectMenu(id) {
       p.note = scrim.querySelector("#pm-note").value.trim();
       close(); save(); render();
     };
-    scrim.querySelector("#pm-del").onclick = () => {
+    scrim.querySelector("#pm-del").onclick = () => askRemoveProject(p);
+  });
+}
+
+/* Removing a file throws away everything the log knows about it, and the button
+   that does it sits a tap away from Save. So it asks, and Cancel hands you back
+   to the sheet you came from rather than dropping you on the list. */
+function askRemoveProject(p) {
+  modal(`<h2>Remove file?</h2>
+    <p class="ask"><b>${esc(p.title)}</b> leaves the log, along with the colours assigned to it. The file on disk is untouched.</p>
+    <div class="sheet-foot"><span class="spacer"></span>
+      <button class="btn ghost" id="pd-no">Cancel</button>
+      <button class="btn danger" id="pd-yes">Remove</button>
+    </div>`, scrim => {
+    scrim.querySelector("#pd-no").onclick = () => { close(); projectMenu(p.id); };
+    scrim.querySelector("#pd-yes").onclick = () => {
       state.projects = state.projects.filter(x => x.id !== p.id);
       close(); save(); render(); toast(`${p.title} removed.`);
     };
@@ -2062,42 +2105,8 @@ setInterval(notifyCheck, 36e5);
 
 /* ---------------- scheduled alarms (the Android build) ---------------- */
 
-const NOTIFY_HOUR = 9;      /* nobody wants to hear about a damp spool at midnight */
-const HORIZON_DAYS = 60;    /* further out than this and the date is guesswork anyway */
-const MAX_ALARMS = 24;      /* Android's queue is finite; stay well inside it */
-
-const atNotifyHour = d => { const x = new Date(d); x.setHours(NOTIFY_HOUR, 0, 0, 0); return x; };
-
-/* state.due is one entry per spool, keyed by the day it goes stale. Android
-   wants the opposite shape — one alarm per day, carrying the names that land on
-   it. Anything already overdue collapses onto the next morning, so a backlog
-   arrives as one notification rather than twenty. */
-function alarms() {
-  const now = new Date();
-  const soonest = atNotifyHour(now) > now ? atNotifyHour(now) : atNotifyHour(new Date(now.getTime() + 864e5));
-  const horizon = now.getTime() + HORIZON_DAYS * 864e5;
-  const days = new Map();
-
-  for (const d of state.due || []) {
-    const on = atNotifyHour(new Date(d.at + "T00:00:00"));
-    const when = (on > now ? on : soonest).getTime();
-    if (when > horizon) continue;
-    if (!days.has(when)) days.set(when, []);
-    days.get(when).push(d.name);
-  }
-
-  return [...days.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .slice(0, MAX_ALARMS)
-    .map(([when, names]) => ({
-      /* Days since the epoch: stable, so rescheduling replaces the alarm for a
-         morning instead of stacking a second one on top of it. */
-      id: Math.round(when / 864e5),
-      title: dryingHeadline(names.length),
-      body: names.slice(0, 3).join(", ") + (names.length > 3 ? ` and ${names.length - 3} more` : ""),
-      schedule: { at: new Date(when), allowWhileIdle: true },
-    }));
-}
+/* One alarm per morning, built out of what the bench says is going stale. */
+const alarms = () => Alarms.plan(state.due || [], new Date(), dryingHeadline);
 
 /* Rebuilt from scratch after every save. Cheaper than working out what changed,
    and it cannot drift: what is queued is always what the inventory implies. */
@@ -2200,7 +2209,7 @@ function renderSetup() {
 
   document.getElementById("notify-how").innerHTML = native()
     ? `Reminders are scheduled with Android, so they arrive whether or not the app is open, and they
-       survive a reboot. One at ${NOTIFY_HOUR}:00 on any morning something is past its window.`
+       survive a reboot. One at ${Alarms.NOTIFY_HOUR}:00 on any morning something is past its window.`
     : `Reminders arrive while the page is open. Add this to your Android home screen and Chrome will also
        check in the background every so often — <span id="notify-bg">${bgText}</span>. Chrome decides how
        often; a couple of times a day is typical.`;
@@ -3120,11 +3129,6 @@ function markDried(unitId) {
 document.addEventListener("click", e => {
   const c = e.target.closest("[data-cycle]");
   if (c) { markDried(c.dataset.cycle); return; }
-  const d = e.target.closest("[data-projdel]");
-  if (d) {
-    state.projects = state.projects.filter(x => x.id !== d.dataset.projdel);
-    save(); render(); return;
-  }
   const ua = e.target.closest("[data-useadd]");
   if (ua) {
     const p = state.projects.find(x => x.id === ua.dataset.useadd);
@@ -3169,6 +3173,8 @@ document.addEventListener("click", e => {
   if (fm) { folderMenu(fm.dataset.fmenu); return; }
   const pm = e.target.closest("[data-projmenu]");
   if (pm) { projectMenu(pm.dataset.projmenu); return; }
+  const pe = e.target.closest("[data-projedit]");
+  if (pe) { editing = editing === pe.dataset.projedit ? null : pe.dataset.projedit; render(); return; }
 });
 
 /* ---------- dragging a project into a folder (mouse only; touch uses the menu) ---------- */
