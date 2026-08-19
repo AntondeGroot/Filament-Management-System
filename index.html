@@ -79,7 +79,6 @@ button{font:inherit;color:inherit;cursor:pointer}
 .tab{background:none;border:0;padding:8px 12px 6px;border-bottom:2px solid transparent;font-family:var(--display);text-transform:uppercase;letter-spacing:.12em;font-weight:600;font-size:14px;color:#8A9099;line-height:1}
 .tab:hover{color:#EDECE8}
 .tab.on{color:#EDECE8;border-bottom-color:#EDECE8}
-.tab .n{font-family:var(--mono);font-size:10px;letter-spacing:0;margin-left:5px;color:#8A9099}
 @media (max-width:1040px){.wrap{grid-template-columns:1fr;gap:20px}}
 
 .section{margin-bottom:24px}
@@ -453,7 +452,7 @@ body.dragging{cursor:grabbing;user-select:none}
   <div class="tabs">
     <button class="tab on" data-tab="bench">Spools</button>
     <button class="tab" data-tab="swatches">Swatches</button>
-    <button class="tab" data-tab="projects">Projects<span class="n" id="tab-count"></span></button>
+    <button class="tab" data-tab="projects">Projects</button>
     <button class="tab" data-tab="settings">Setup</button>
   </div>
   <div class="stats">
@@ -1895,7 +1894,6 @@ function renderProjects() {
     state.folders.length || state.projects.length ? tree(null, 0) : "";
   document.getElementById("log-meta").textContent =
     state.projects.length ? state.projects.length + " files" : "";
-  document.getElementById("tab-count").textContent = state.projects.length || "";
 }
 
 /* ---------- folder and project menus ---------- */
