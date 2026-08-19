@@ -8,7 +8,7 @@
 
 On your phone, offline.
 
-**✖ It does not track your prints and how much filament you have exactly left. You determine when a spool is full, running low or is empty.**
+**✖ It does not track your prints and how much filament you have exactly left. You determine when a spool is full, running low or is empty.**\
 **✖ It does not account for the hygroscopicity of different materials.**
 
 **▣ Spool Locations**\
