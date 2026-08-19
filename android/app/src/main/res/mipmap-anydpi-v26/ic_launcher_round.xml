@@ -2,7 +2,7 @@
 <!-- Full bleed on purpose. @capacitor/assets insets the foreground by 16.7% to
      fit square art inside the 72dp guaranteed-visible circle, but the source
      here is icon-512-maskable.png, which already carries that margin — insetting
-     it again shrinks the spool to a dot. The background is a flat colour rather
+     it again shrinks the spool to a dot. The background is a flat color rather
      than the @mipmap drawable capacitor-assets names but never writes.
      Rewritten by scripts/generate-assets.sh after every regeneration. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">

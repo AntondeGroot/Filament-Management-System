@@ -93,7 +93,7 @@ describe("alarms()", () => {
     const due = Array.from({ length: 30 }, (_, i) => {
       const day = new Date(2026, 7, 20 + i);   /* Date months are 0-based: 7 is August */
       return {
-        name: `Colour ${i}`,
+        name: `Color ${i}`,
         at: `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`,
       };
     });

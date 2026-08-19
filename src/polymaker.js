@@ -82,9 +82,9 @@ export const POLYMAKER_HEX = {
   "Matte Grass Green":"#32BC46", "Matte Electric Magenta":"#D33A6D", "Matte Sunshine Yellow":"#F9DA07"
 };
 
-/* Polymaker names its colours by finish as well as hue — "Matte Lava Red" for
+/* Polymaker names its colors by finish as well as hue — "Matte Lava Red" for
    what the spool label calls "Lava Red" — so an exact match is tried first and a
-   containment match second. That order matters: "Yellow" is itself a colour and
+   containment match second. That order matters: "Yellow" is itself a color and
    would otherwise be swallowed by the six that merely end in it.
 
    Several matches means the name is too vague to act on, and guessing at a hex

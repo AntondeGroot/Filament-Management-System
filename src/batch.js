@@ -22,7 +22,7 @@ export const batchLabel = n => (n === 1 ? "Move this roll" : `Move these ${n}`);
    lives here beside the rule that consumes it.
 
    `spoolOf` is passed in rather than reached for: what makes two rolls
-   identical is their colour, whether they are low, and whether they are still
+   identical is their color, whether they are low, and whether they are still
    sealed, and none of that is this module's business to look up. */
 export function stacks(ids, spoolOf) {
   const piles = [], seen = new Map();

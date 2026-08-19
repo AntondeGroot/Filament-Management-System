@@ -1,4 +1,4 @@
-/* Colour, as arithmetic. Nothing here reads the bench or touches the page —
+/* Color, as arithmetic. Nothing here reads the bench or touches the page —
    it converts, compares and reduces, which is why every one of these can be
    checked against a known value rather than against a screenshot. */
 
@@ -9,11 +9,11 @@ export const readable = hex => {
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.56 ? "#16181D" : "#F2F1ED";
 };
 
-/* How much of a translucent colour survives where the row thins out. */
+/* How much of a translucent color survives where the row thins out. */
 export const CLEAR_ALPHA = 0.7;
 export const CLEAR_HEX = Math.round(CLEAR_ALPHA * 255).toString(16);
 
-/* Ordering colours is a perceptual problem, so it is done in a perceptual
+/* Ordering colors is a perceptual problem, so it is done in a perceptual
    space. OKLCH costs about fifteen lines and fixes two things HSL gets wrong
    for a shelf of filament: its lightness calls #F5C518 and #3E7BD1 equally
    bright, which no eye agrees with, and its hue crowds every yellow into twenty
@@ -42,38 +42,38 @@ export function oklch(hex) {
  * degrees and end up as far apart as it is possible to be.
  *
  * Within a band the order is vivid to muted, so a family reads as a run from
- * the pure colour down through its greyed and pastel versions. Lightness only
+ * the pure color down through its greyed and pastel versions. Lightness only
  * breaks ties: ordering a band by lightness alone buried a pure orange behind a
  * pale peach and a brown that happened to share its hue. */
 export const HUE_START = 350, HUE_BAND = 20, NEUTRAL_C = 0.04;
 
-/* Brown is not a hue. It is a warm colour with most of the chroma taken out,
+/* Brown is not a hue. It is a warm color with most of the chroma taken out,
  * which is why a chroma threshold alone scatters it: #C09F83 keeps just enough
  * to sort among the oranges while #D9C7B2 and #625141 fall through to the
  * greys — three shades of the same thing in three different places.
  *
- * So warmth decides, not colourfulness. Below EARTH_C a colour that still leans
+ * So warmth decides, not colorfulness. Below EARTH_C a color that still leans
  * orange is an earth tone; one that leans blue, or leans nowhere, is a grey.
  * #899FAB and #625141 have almost identical chroma and belong in different
  * places, and their hue is the only thing that says so.
  *
- * The floor matters as much as the ceiling. Hue is a direction, and a colour
+ * The floor matters as much as the ceiling. Hue is a direction, and a color
  * with no chroma is not pointing anywhere — pure white computes to hue 90,
  * squarely in the warm range, and would file itself under brown. Below
- * EARTH_C[0] the hue is 8-bit rounding noise and the colour is simply grey.
+ * EARTH_C[0] the hue is 8-bit rounding noise and the color is simply grey.
  *
  * The arc runs from 330°, so it takes in the washed-out pinks as well as the
- * tans. A pale pink is the same phenomenon as a brown — a warm colour with the
+ * tans. A pale pink is the same phenomenon as a brown — a warm color with the
  * chroma drained — and #F1DEDF has less chroma than #899FAB while still
  * obviously being a pink and not a grey. That asymmetry is real: blues and
- * greens desaturate into greys, warm colours desaturate into pinks and tans and
+ * greens desaturate into greys, warm colors desaturate into pinks and tans and
  * keep their name. */
 export const EARTH_C = [0.015, 0.09], EARTH_HUE = [330, 110], EARTH_BAND = 40;
 
 export const inArc = (h, [from, to]) => (from <= to ? h >= from && h <= to : h >= from || h <= to);
 
 /* 0 rainbow, 1 earth, 2 neutral — the three runs the shelf reads in. */
-export const colourTier = t =>
+export const colorTier = t =>
   t.C >= EARTH_C[0] && t.C < EARTH_C[1] && inArc(t.h, EARTH_HUE) ? 1
     : t.C < NEUTRAL_C ? 2
     : 0;
@@ -104,7 +104,7 @@ export function hsvToHex(h, s, v) {
   return ("#" + pair(f(5)) + pair(f(3)) + pair(f(1))).toUpperCase();
 }
 
-/* Shifts a colour along the warm–cool axis — the correction you would apply if
+/* Shifts a color along the warm–cool axis — the correction you would apply if
  * the light were bluer or oranger than the camera took it for. Positive warms,
  * negative cools.
  *
@@ -141,10 +141,10 @@ export function bodyHex(data) {
 }
 
 
-/* The colour of a spool's bore.
+/* The color of a spool's bore.
  *
  * A bore is a hole, and through a hole you see whatever the spool is lying on
- * — which here is always a card, --panel. So the bore is simply that colour,
+ * — which here is always a card, --panel. So the bore is simply that color,
  * and reads as an opening rather than as a tinted version of the filament.
  * Shadow was the wrong model: on a mid purple a darkened bore is barely there,
  * and on a 17px chip it is not there at all.

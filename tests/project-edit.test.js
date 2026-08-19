@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { openApp, setBench, stubMedia } from "./harness.js";
 
-/* One file with one colour on it — the shape a sliced .3mf leaves behind. */
+/* One file with one color on it — the shape a sliced .3mf leaves behind. */
 const ONE_FILE = {
   swatches: [{ id: "sw-1", brand: "Bambu", material: "PLA", colorName: "Red", hex: "#C2231C" }],
   projects: [{ id: "pj-1", kind: "3mf", name: "keychain.3mf", title: "keychain", note: "",
@@ -18,14 +18,14 @@ const shown = run => run(`(() => {
   };
 })()`);
 
-describe("a file's colours", () => {
+describe("a file's colors", () => {
   it("reads as a list until you ask to edit, and only then can be changed", async () => {
     const { run, close } = await openApp();
     stubMedia(run);
     setBench(run, ONE_FILE);
     run("render()");
 
-    /* Nothing to hit by accident: the colour is text, and the × that would drop
+    /* Nothing to hit by accident: the color is text, and the × that would drop
        it is not on the page at all. */
     expect(shown(run)).toEqual({ name: "Bambu Red · PLA", pickers: 0, removes: 0 });
 

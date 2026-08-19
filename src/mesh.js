@@ -1,12 +1,12 @@
 /* Reading what a sliced file has to say, and drawing a picture of one.
  *
  * Bambu Studio writes a sliced .3mf as a plain zip. Two entries matter:
- * Metadata/slice_info.config lists every filament with its type, colour and
+ * Metadata/slice_info.config lists every filament with its type, color and
  * grams, and Metadata/plate_*.png is the plate preview. No library needed — the
  * central directory is easy to walk and DecompressionStream does deflate.
  *
  * Nothing here knows about projects or swatches. It answers what is in a file;
- * deciding which colour in the library that corresponds to, and what record to
+ * deciding which color in the library that corresponds to, and what record to
  * write, belongs to the app. */
 
 async function inflateRaw(bytes) {
@@ -64,7 +64,7 @@ export function shrink(bytes) {
 
 /* The filaments a slicer says it used, how long it thinks the print takes, and
    the plate preview. Null when the file is not a sliced .3mf — a plain model
-   exported from CAD is still a perfectly good project, its colours just go in
+   exported from CAD is still a perfectly good project, its colors just go in
    by hand. */
 export async function read3mfInfo(file) {
   try {
@@ -90,13 +90,13 @@ export async function read3mfInfo(file) {
   }
 }
 
-/* An STL carries no colour and no thumbnail, so one is drawn from the geometry. */
+/* An STL carries no color and no thumbnail, so one is drawn from the geometry. */
 export async function readStlThumb(file) {
   try {
     const tris = readStlTriangles(await file.arrayBuffer());
     return tris ? renderMesh(tris) : null;
   } catch (e) {
-    return null;   /* unreadable geometry is fine — the name and colours still work */
+    return null;   /* unreadable geometry is fine — the name and colors still work */
   }
 }
 
@@ -158,7 +158,7 @@ export function renderMesh(tris) {
     let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
     const len = Math.hypot(nx, ny, nz) || 1;
     const lit = Math.max(0, (0.35 * nx + 0.25 * ny + 0.9 * nz) / len);
-    /* Light greys only: this gets multiplied by the filament colour at display time. */
+    /* Light greys only: this gets multiplied by the filament color at display time. */
     const v = Math.round(96 + lit * 159);
     g.fillStyle = `rgb(${v},${v},${v})`;
     g.beginPath();

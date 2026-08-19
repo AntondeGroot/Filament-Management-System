@@ -7,7 +7,7 @@
  * spread across three columns and the tab bar along the top.
  *
  * The bench below is invented, not anyone's real inventory, and is picked to
- * show what the app is for: a spread of colour, rolls in every kind of place,
+ * show what the app is for: a spread of color, rolls in every kind of place,
  * a dryer mid-cycle and a pile of identical blacks stacked into one card.
  *
  * Needs Chrome, which it drives over the DevTools protocol. No headless browser
@@ -155,7 +155,7 @@ const BENCH = `(() => {
 const SHOTS = [
   { file: "spools.png", note: "every roll where it actually is",
     setUp: `setTab("bench"); scrollTo(0, 0);` },
-  /* One unit opened on purpose. Collapsed, a card shows colour chips and no
+  /* One unit opened on purpose. Collapsed, a card shows color chips and no
      tags, so the "dry me" flag — the whole point of this picture — is not in
      it. Opening the shelf shows the flag, and cropping to the rolls themselves
      keeps four empty slots from taking up half the picture. */
@@ -187,7 +187,7 @@ const SHOTS = [
       const pad = 12;
       return { x: box.left - pad, y: box.top - pad, width: box.width + pad * 2, height: box.height + pad * 2 };
     })()` },
-  { file: "swatches.png", note: "every colour and material owned",
+  { file: "swatches.png", note: "every color and material owned",
     setUp: `setTab("swatches"); scrollTo(0, 0);` },
 ];
 

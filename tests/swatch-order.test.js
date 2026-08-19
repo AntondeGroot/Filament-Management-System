@@ -34,7 +34,7 @@ const EXPECTED = [
   "#925EB6",   /* Purple */
   "#A695F5",   /* Lavender Purple */
 
-  /* — the earths: warm colours with the chroma drained, pinks then tans — */
+  /* — the earths: warm colors with the chroma drained, pinks then tans — */
   "#D8B5C5",   /* Sakura Pink */
   "#F1DEDF",   /* Candy — less chroma than Fossil Grey below, and still a pink */
   "#FFDEC6",   /* Nude */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BATCH_SIZE, batchFrom, looseBatch } from "../src/batch.js";
 
-/* A loose zone is a list of ids; what makes two rolls stack is their colour,
+/* A loose zone is a list of ids; what makes two rolls stack is their color,
    whether they are low, and whether they are still sealed. */
 const shelf = spools => [spools.map(s => s.id), id => spools.find(s => s.id === id)];
 const roll = (id, swatchId, extra = {}) => ({ id, swatchId, low: false, sealed: false, ...extra });
@@ -54,7 +54,7 @@ describe("looseBatch()", () => {
   });
 
   it("keeps rolls apart when only their condition differs", () => {
-    /* Same colour, but a sealed roll and a low one are not interchangeable and
+    /* Same color, but a sealed roll and a low one are not interchangeable and
        do not stack. Order follows first appearance, so the sealed pair leads
        and the batch reaches into the open ones. */
     const [ids, spoolOf] = shelf([

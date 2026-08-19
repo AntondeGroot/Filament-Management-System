@@ -42,14 +42,14 @@ npx capacitor-assets generate --android
 # Two things are wrong out of the box:
 #
 #   1. It points the background at @mipmap/ic_launcher_background, which it
-#      never writes to mipmap — the colour lands in drawable/ and values/
+#      never writes to mipmap — the color lands in drawable/ and values/
 #      instead. Left alone the build fails on the missing resource.
 #   2. It insets both layers by 16.7% so square artwork fills the guaranteed-
 #      visible circle. Our foreground *is* the maskable icon, already drawn with
 #      that margin, so the inset applies it twice and the spool ends up a small
 #      disc adrift in a dark square.
 #
-# Full bleed over a flat colour fixes both.
+# Full bleed over a flat color fixes both.
 
 echo "→ rewriting the adaptive icon to full bleed"
 for f in android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml \
@@ -59,7 +59,7 @@ for f in android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml \
 <!-- Full bleed on purpose. @capacitor/assets insets the foreground by 16.7% to
      fit square art inside the 72dp guaranteed-visible circle, but the source
      here is icon-512-maskable.png, which already carries that margin — insetting
-     it again shrinks the spool to a dot. The background is a flat colour rather
+     it again shrinks the spool to a dot. The background is a flat color rather
      than the @mipmap drawable capacitor-assets names but never writes.
      Rewritten by scripts/generate-assets.sh after every regeneration. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
