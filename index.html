@@ -190,17 +190,17 @@ body.dragging .unit-head[data-grip]{cursor:grabbing}
 
 .disc{position:relative;width:42px;height:42px;flex:none}
 .disc .flange{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 6%,rgba(0,0,0,.16) 0 2px,transparent 2px),radial-gradient(circle at 12% 72%,rgba(0,0,0,.16) 0 2px,transparent 2px),radial-gradient(circle at 88% 72%,rgba(0,0,0,.16) 0 2px,transparent 2px),radial-gradient(circle,transparent 0 39%,rgba(0,0,0,.07) 39% 41%,transparent 41%),var(--flange);box-shadow:inset 0 0 0 1px rgba(0,0,0,.22),inset 0 0 0 3px rgba(255,255,255,.28)}
-/* The winding is the filament's own colour and nothing else. It used to carry
+/* The winding is the filament's own color and nothing else. It used to carry
    white hairlines to suggest wound turns, which lightened every roll — and the
    thinner the ring, the more of it was hairline, so a spool running low showed
-   a paler colour than the one it actually is. Exactly the reading you go to
-   this list to make. The grooves are dark-only now, so the colour can be lost
+   a paler color than the one it actually is. Exactly the reading you go to
+   this list to make. The grooves are dark-only now, so the color can be lost
    to shadow but never washed out. */
 .disc .wind{position:absolute;left:50%;top:50%;width:calc(24% + 52% * var(--fill,1));aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background-color:var(--c,#888);background-image:repeating-radial-gradient(circle,transparent 0 2px,rgba(0,0,0,.07) 2px 3px);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);transition:width .25s ease}
 /* The bore is a hole, so it is drawn as shadow over the winding rather than as
-   a colour of its own: always darker than the filament, never lighter. It used
+   a color of its own: always darker than the filament, never lighter. It used
    to be a flat grey disc ringed in white, which on a black roll put a pale
-   circle in the middle of the one colour that has none — and on a 17px chip
+   circle in the middle of the one color that has none — and on a 17px chip
    that ring was a third of the bore's width. */
 .disc .hub{position:absolute;left:50%;top:50%;width:24%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:var(--bore,var(--panel));box-shadow:inset 0 0 0 1px rgba(0,0,0,.22)}
 
@@ -229,9 +229,9 @@ body.dragging{cursor:grabbing;user-select:none}
 .proj{display:flex;gap:10px;padding:11px 0;border-top:1px solid var(--rule)}
 .proj:first-of-type{border-top:0}
 .proj .thumb{width:62px;height:62px;flex:none;border:1px solid var(--rule);border-radius:3px;background:#fff center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;color:var(--ink-soft)}
-/* Tinted mesh preview: a flat colour clipped to the silhouette, with the
+/* Tinted mesh preview: a flat color clipped to the silhouette, with the
    stored greyscale shading multiplied over it. Re-tints the moment you
-   change the colour, without keeping the geometry around. */
+   change the color, without keeping the geometry around. */
 .thumb.mesh{position:relative;isolation:isolate;background:#FBFAF8;overflow:hidden}
 .thumb.mesh::before{content:"";position:absolute;inset:0;background:var(--tint);
   -webkit-mask-image:var(--img);mask-image:var(--img);
@@ -247,7 +247,7 @@ body.dragging{cursor:grabbing;user-select:none}
 .fil select{flex:1;min-width:0;padding:2px 4px;border:1px solid var(--rule);border-radius:2px;background:#fff;font-family:var(--body);font-size:12px;color:var(--ink)}
 .fil .g{font-family:var(--mono);font-size:10px;color:var(--ink-soft)}
 .proj .acts{display:flex;gap:6px;margin-top:7px}
-/* Floated, not a column of its own: the name wraps beside it and the colour
+/* Floated, not a column of its own: the name wraps beside it and the color
    list underneath still gets the full width of the card. */
 .proj .edit{float:right;margin-left:8px}
 .frow{display:flex;align-items:center;gap:6px;padding:5px 4px;border-radius:2px}
@@ -302,7 +302,7 @@ body.dragging{cursor:grabbing;user-select:none}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .swatchrow{display:flex;gap:8px;align-items:center}
 .swatchrow input[type=text]{flex:1}
-/* --- sampling a colour off a photo --- */
+/* --- sampling a color off a photo --- */
 .iconbtn{display:inline-flex;align-items:center;justify-content:center;padding:6px;border:1px solid var(--rule);
   border-radius:2px;background:transparent;color:var(--ink-soft);flex:0 0 auto}
 .iconbtn:hover{background:rgba(0,0,0,.06);color:var(--ink)}
@@ -315,7 +315,7 @@ body.dragging{cursor:grabbing;user-select:none}
 .reticle{position:absolute;left:50%;top:50%;width:58px;height:58px;transform:translate(-50%,-50%);
   border:2px solid #fff;border-radius:2px;pointer-events:none;
   box-shadow:0 0 0 1px rgba(0,0,0,.7),0 0 0 9999px rgba(16,18,22,.42)}
-/* --- the colour wheel --- */
+/* --- the color wheel --- */
 .chipbtn{width:38px;height:30px;border-radius:2px;border:1px solid var(--ink);padding:0;flex:0 0 auto;cursor:pointer}
 .wheel{position:relative;width:min(268px,70vw);aspect-ratio:1;margin:2px auto 0;touch-action:none;cursor:crosshair}
 /* Namespaced, because .disc and .dot are already the spool graphic. Scoping
@@ -348,18 +348,18 @@ body.dragging{cursor:grabbing;user-select:none}
 .swatch{display:flex;align-items:center;gap:12px;width:100%;padding:15px 14px;border:0;text-align:left;
         box-shadow:inset 0 -1px 0 rgba(0,0,0,.14);cursor:pointer}
 .swatch:hover{filter:brightness(1.06)}
-/* A translucent filament is the colour with light getting through it, drawn as
+/* A translucent filament is the color with light getting through it, drawn as
    a sheen falling across gloss rather than as a chequer — a chequer is a
    graphics-app convention borrowed from outside, and its pattern competes with
-   the colour you are trying to match a spool against.
+   the color you are trying to match a spool against.
 
-   Both ends of the row stay the true colour and only the middle thins out. That
+   Both ends of the row stay the true color and only the middle thins out. That
    is what keeps the swatch usable: the whole point of the list is matching a
-   colour by eye, and a row that is translucent end to end never shows you the
-   colour it claims to be.
+   color by eye, and a row that is translucent end to end never shows you the
+   color it claims to be.
 
    The first background layer sits on top, so the highlight is listed before the
-   colour it falls across. */
+   color it falls across. */
 .swatch.clear{background-image:linear-gradient(100deg,transparent 34%,rgba(255,255,255,.34) 44%,
   rgba(255,255,255,.10) 52%,transparent 62%),
   linear-gradient(100deg,var(--solid) 0 20%,var(--tint) 40% 60%,var(--solid) 80% 100%)}
@@ -485,7 +485,7 @@ body.dragging{cursor:grabbing;user-select:none}
   <div class="log">
     <div class="log-head"><div class="eyebrow">Swatches</div><div class="hair"></div>
       <div class="meta mono" style="font-size:11px;color:var(--ink-soft)" id="swatch-meta"></div></div>
-    <p class="empty-note" style="max-width:62ch">Every colour you own, sorted by hue. Rolls you buy land here
+    <p class="empty-note" style="max-width:62ch">Every color you own, sorted by hue. Rolls you buy land here
       automatically and stay after the last one runs out — so this doubles as a record of what you used to have.</p>
     <div class="chips" id="swatch-filter"></div>
     <div class="swatches" id="swatch-list"></div>
@@ -569,9 +569,9 @@ body.dragging{cursor:grabbing;user-select:none}
   import * as Drying from "./src/drying.js";
   import * as Polymaker from "./src/polymaker.js";
   import * as Batch from "./src/batch.js";
-  import * as Colour from "./src/colour.js";
+  import * as Color from "./src/color.js";
   import * as Alarms from "./src/alarms.js";
-  Object.assign(window, { Mesh, Drying, Polymaker, Batch, Colour, Alarms });
+  Object.assign(window, { Mesh, Drying, Polymaker, Batch, Color, Alarms });
   window.bridged();
 </script>
 
@@ -627,7 +627,7 @@ function emptyBench() {
     dryTracking: true,
     notify: false,
     notifiedOn: null,
-    /* How the camera should be set up to read a colour in this room. Belongs to
+    /* How the camera should be set up to read a color in this room. Belongs to
        the device rather than the inventory — another phone has another sensor,
        and a workshop has its own light — but it is worth keeping, because
        finding the settings that suit the bench is a fiddle you should only
@@ -739,7 +739,7 @@ function migrate() {
   }
   if (!state.spares) state.spares = [];
   if (!state.swatches) state.swatches = [];
-  /* Spools used to carry their own brand/colour; lift each one onto a swatch. */
+  /* Spools used to carry their own brand/color; lift each one onto a swatch. */
   const key = o => [o.brand, o.material, o.colorName, o.hex].join("|").toLowerCase();
   const byKey = new Map(state.swatches.map(w => [key(w), w.id]));
   state.spools.forEach(s => {
@@ -761,7 +761,7 @@ function migrate() {
     if (!p.kind) p.kind = /\.stl$/i.test(p.name || "") ? "stl" : "3mf";
     if (!p.note) p.note = "";
     if (!p.uses) {
-      /* was: filaments from the file + a spool per filament. Now: colours from the library. */
+      /* was: filaments from the file + a spool per filament. Now: colors from the library. */
       p.uses = (p.filaments || []).map((f, i) => {
         const s = (p.spoolIds || [])[i] ? spool(p.spoolIds[i]) : null;
         return { type: f.type, color: f.color, grams: f.grams, swatchId: s ? s.swatchId : matchSwatch(f.type, f.color) };
@@ -821,7 +821,7 @@ function stampChanges() {
 }
 
 /* The service worker shouldn't have to reimplement any of this, so the page
-   leaves it a flat list of "this colour is overdue on this date". */
+   leaves it a flat list of "this color is overdue on this date". */
 function dueList() {
   if (!dryingOn()) return [];
   const out = [];
@@ -852,7 +852,7 @@ function save() {
 /* ============================ helpers ============================ */
 const spool = id => state.spools.find(s => s.id === id);
 const swatch = id => state.swatches.find(w => w.id === id);
-const GONE = { brand: "Unknown", material: "?", colorName: "Unknown colour", hex: "#9A9A9A" };
+const GONE = { brand: "Unknown", material: "?", colorName: "Unknown color", hex: "#9A9A9A" };
 /* A spool is an instance of a swatch. The swatch holds the identity. */
 const info = s => (s && swatch(s.swatchId)) || GONE;
 const unit = id => state.units.find(u => u.id === id);
@@ -1020,7 +1020,7 @@ function spoolHTML(s, n = 1) {
   return `<div class="spool${flash.has(s.id) ? " flash" : ""}${n > 1 ? " stacked" : ""}" data-id="${s.id}" tabindex="0" role="button"
       aria-label="${esc(w.brand)} ${esc(w.material)} ${esc(w.colorName)}${empty ? ", empty" : s.sealed ? ", sealed" : s.low ? ", running low" : ""}${says}">
     ${n > 1 ? `<span class="stack">${n}</span>` : ""}
-    <div class="disc" style="--c:${esc(w.hex)};--bore:${Colour.bore(w.hex)};--fill:${fill(s)}">
+    <div class="disc" style="--c:${esc(w.hex)};--bore:${Color.bore(w.hex)};--fill:${fill(s)}">
       <div class="flange"></div><div class="wind"></div><div class="hub"></div>
     </div>
     <div class="brand">${esc(w.brand)}</div>
@@ -1055,7 +1055,7 @@ function spoolChip(s) {
   return `<div class="spool mini${flash.has(s.id) ? " flash" : ""}" data-id="${s.id}" tabindex="0" role="button"
       title="${esc(w.brand)} ${esc(w.colorName)}${s.sealed ? " · sealed" : s.low ? " · running low" : ""}"
       aria-label="${esc(w.brand)} ${esc(w.material)} ${esc(w.colorName)}">
-    <span class="disc" style="--c:${esc(w.hex)};--bore:${Colour.bore(w.hex)};--fill:${fill(s)}">
+    <span class="disc" style="--c:${esc(w.hex)};--bore:${Color.bore(w.hex)};--fill:${fill(s)}">
       <span class="flange"></span><span class="wind"></span><span class="hub"></span>
     </span>${esc(w.material)}${s.sealed ? `<span class="sealed-dot"></span>` : ""}${(() => {
       const d = dryState(s);
@@ -1565,7 +1565,7 @@ function close() {
 }
 document.addEventListener("keydown", e => { if (e.key === "Escape") { close(); disarmBatch(); } });
 
-/* --- add or edit a roll of a known colour --- */
+/* --- add or edit a roll of a known color --- */
 function spoolForm(existing, swatchId) {
   const wid = existing ? existing.swatchId : swatchId;
   const w = swatch(wid) || GONE;
@@ -1573,13 +1573,13 @@ function spoolForm(existing, swatchId) {
   modal(`
     <h2>${existing ? "Edit roll" : "Add a roll"}</h2>
     <div style="display:flex;gap:11px;align-items:center;margin:-4px 0 14px">
-      <div class="disc" style="--c:${esc(w.hex)};--bore:${Colour.bore(w.hex)};--fill:1;width:46px;height:46px">
+      <div class="disc" style="--c:${esc(w.hex)};--bore:${Color.bore(w.hex)};--fill:1;width:46px;height:46px">
         <div class="flange"></div><div class="wind"></div><div class="hub"></div>
       </div>
       <div style="min-width:0">
         <div style="font-family:var(--display);text-transform:uppercase;letter-spacing:.05em;font-weight:600;font-size:16px">${esc(w.colorName)}</div>
         <div style="font-size:12px;color:var(--ink-soft)">${esc(w.brand)} · ${esc(w.material)}
-          <button class="btn ghost tiny" id="f-swap" style="margin-left:6px">Change colour</button></div>
+          <button class="btn ghost tiny" id="f-swap" style="margin-left:6px">Change color</button></div>
       </div>
     </div>
     <div class="two">
@@ -1629,7 +1629,7 @@ function spoolForm(existing, swatchId) {
   });
 }
 
-/* One tap from the Spools tab: pick a colour, get a sealed roll waiting to be put away. */
+/* One tap from the Spools tab: pick a color, get a sealed roll waiting to be put away. */
 function addSealedRoll(swatchId) {
   const w = swatch(swatchId) || GONE;
   const ns = { id: uid("sp-"), swatchId, low: false, sealed: true, ordered: false, driedAt: null };
@@ -1642,10 +1642,10 @@ function addSealedRoll(swatchId) {
   if (row) row.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth" });
 }
 
-/* --- pick a colour from the swatch book --- */
+/* --- pick a color from the swatch book --- */
 function swatchPicker(onPick) {
   const list = sortedSwatches();
-  modal(`<h2>Which colour?</h2>
+  modal(`<h2>Which color?</h2>
     <div class="swatches" style="max-height:52vh;overflow:auto;margin-bottom:12px">
       ${list.map(sw => `<button class="swatch${sw.transparent ? " clear" : ""}" data-pick="${sw.id}" style="${swatchPaint(sw)};padding:11px 12px">
         <span class="sw-name" style="font-size:14px">${esc(sw.colorName)}</span>
@@ -1653,7 +1653,7 @@ function swatchPicker(onPick) {
       </button>`).join("")}
     </div>
     <div class="sheet-foot">
-      <button class="btn" id="p-new">New colour</button>
+      <button class="btn" id="p-new">New color</button>
       <span class="spacer"></span>
       <button class="btn ghost" data-close>Cancel</button>
     </div>`, scrim => {
@@ -1688,7 +1688,7 @@ function openSpool(id) {
   modal(`
     <h2>${esc(w.brand)} ${esc(w.colorName)}</h2>
     <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">
-      <div class="disc" style="--c:${esc(w.hex)};--bore:${Colour.bore(w.hex)};--fill:${fill(s)};width:58px;height:58px">
+      <div class="disc" style="--c:${esc(w.hex)};--bore:${Color.bore(w.hex)};--fill:${fill(s)};width:58px;height:58px">
         <div class="flange"></div><div class="wind"></div><div class="hub"></div>
       </div>
       <div>
@@ -1752,12 +1752,12 @@ function openSpool(id) {
 /* ============================ .3mf and .stl files ============================
    Reading them lives in src/mesh.js, which knows nothing about this app. What
    is left here is the part that does: turning what a file says into a project
-   record, and matching the colours it names against the library. */
+   record, and matching the colors it names against the library. */
 
 async function read3mf(file) {
   const rec = newProject(file, "3mf");
   const info = await Mesh.read3mfInfo(file);
-  if (!info) return rec;   /* not a sliced file — colours go in by hand */
+  if (!info) return rec;   /* not a sliced file — colors go in by hand */
   rec.uses = info.filaments.map(f => ({ ...f, swatchId: matchSwatch(f.type, f.color) }));
   rec.seconds = info.seconds;
   rec.thumb = info.thumb;
@@ -1776,12 +1776,12 @@ function newProject(file, kind) {
            note: "", folder: null, added: today(), uses: [], thumb: null, seconds: 0 };
 }
 
-/* Guess which colour in the library a filament entry came off. */
+/* Guess which color in the library a filament entry came off. */
 function matchSwatch(type, color) {
-  const want = Colour.rgb(color);
+  const want = Color.rgb(color);
   let best = null, score = Infinity;
   state.swatches.forEach(w => {
-    const got = Colour.rgb(w.hex);
+    const got = Color.rgb(w.hex);
     const dc = Math.hypot(want[0] - got[0], want[1] - got[1], want[2] - got[2]);
     const a = family(w.material), b = family(type);
     const s = dc + (a === b ? 0 : 240);
@@ -1814,9 +1814,9 @@ function folderOptions(skipId, sel) {
   return out.join("");
 }
 
-/* Only one file is ever open for editing. Colour pickers and their × buttons
+/* Only one file is ever open for editing. Color pickers and their × buttons
  * live behind that: the file list is something you scroll past with a thumb,
- * and a picker you can hit by accident is a colour reassigned without anyone
+ * and a picker you can hit by accident is a color reassigned without anyone
  * noticing — the accident nothing warns you about, because to the app it looks
  * exactly like the edit you meant. Reading is the default; editing you ask for.
  *
@@ -1825,14 +1825,14 @@ function folderOptions(skipId, sel) {
  * surprise rather than a convenience. */
 let editing = null;
 
-/* What a colour row says when it is only being read. */
+/* What a color row says when it is only being read. */
 const useLabel = u => {
   const w = swatch(u.swatchId);
   if (w) return `${w.brand} ${w.colorName} · ${w.material}`;
-  return u.type ? `Unmatched — ${u.type} ${u.color}` : "No colour picked";
+  return u.type ? `Unmatched — ${u.type} ${u.color}` : "No color picked";
 };
 
-/* Geometry has no colour of its own, so it wears the first one you assigned. */
+/* Geometry has no color of its own, so it wears the first one you assigned. */
 function projectTint(p) {
   const u = (p.uses || []).find(x => x.swatchId && swatch(x.swatchId));
   return u ? swatch(u.swatchId).hex : "#B4B1AA";
@@ -1861,15 +1861,15 @@ function renderProjects() {
           const grams = `<span class="g">${u.grams ? u.grams + " g" : ""}</span>`;
           return editable ? `<div class="fil">${dot}
             <select data-proj="${p.id}" data-use="${i}">
-              <option value=""${w ? "" : " selected"}>${u.type ? `Unmatched — ${esc(u.type)} ${esc(u.color)}` : "Pick a colour"}</option>
+              <option value=""${w ? "" : " selected"}>${u.type ? `Unmatched — ${esc(u.type)} ${esc(u.color)}` : "Pick a color"}</option>
               ${opts(u.swatchId)}
             </select>
             ${grams}
-            <button class="btn ghost tiny" data-usedel="${p.id}|${i}" aria-label="Remove colour">×</button>
+            <button class="btn ghost tiny" data-usedel="${p.id}|${i}" aria-label="Remove color">×</button>
           </div>` : `<div class="fil read">${dot}<span class="nm">${esc(useLabel(u))}</span>${grams}</div>`;
         }).join("")}
         ${editable ? `<div class="acts">
-          <button class="btn ghost tiny" data-useadd="${p.id}">+ Colour</button>
+          <button class="btn ghost tiny" data-useadd="${p.id}">+ Color</button>
           <button class="btn ghost tiny" data-projmenu="${p.id}">Rename / move</button>
         </div>` : ""}
       </div>
@@ -1956,7 +1956,7 @@ function projectMenu(id) {
    to the sheet you came from rather than dropping you on the list. */
 function askRemoveProject(p) {
   modal(`<h2>Remove file?</h2>
-    <p class="ask"><b>${esc(p.title)}</b> leaves the log, along with the colours assigned to it. The file on disk is untouched.</p>
+    <p class="ask"><b>${esc(p.title)}</b> leaves the log, along with the colors assigned to it. The file on disk is untouched.</p>
     <div class="sheet-foot"><span class="spacer"></span>
       <button class="btn ghost" id="pd-no">Cancel</button>
       <button class="btn danger" id="pd-yes">Remove</button>
@@ -2004,7 +2004,7 @@ async function intake(list, into = null) {
   setTab("projects");
   save(); render();
   toast(files.length > 1 ? `${files.length} files added.`
-    : matched ? `${files[0].name} — ${matched} colour${matched > 1 ? "s" : ""} matched.`
+    : matched ? `${files[0].name} — ${matched} color${matched > 1 ? "s" : ""} matched.`
     : `${files[0].name} added.`);
 }
 
@@ -2306,25 +2306,25 @@ document.addEventListener("click", e => {
 });
 
 /* ============================ swatches ============================ */
-/* A record of colours, not of plastic. Spools feed it automatically and it
+/* A record of colors, not of plastic. Spools feed it automatically and it
    keeps the entry after the last roll is gone — that's the whole point. */
 
 /* The inline half of a swatch's paint job. Opaque ones set a flat background;
-   translucent ones hand the stylesheet the true colour and a thinned copy, and
+   translucent ones hand the stylesheet the true color and a thinned copy, and
    let it do the layering.
 
-   Both take their label colour from the raw hex, because both ends of a
+   Both take their label color from the raw hex, because both ends of a
    translucent row are the raw hex — the name sits on one, the stock count on
    the other. */
 const swatchPaint = sw => (sw.transparent
-  ? `--solid:${esc(sw.hex)};--tint:${esc(sw.hex)}${Colour.CLEAR_HEX};color:${Colour.readable(sw.hex)}`
-  : `background:${esc(sw.hex)};color:${Colour.readable(sw.hex)}`);
+  ? `--solid:${esc(sw.hex)};--tint:${esc(sw.hex)}${Color.CLEAR_HEX};color:${Color.readable(sw.hex)}`
+  : `background:${esc(sw.hex)};color:${Color.readable(sw.hex)}`);
 function sortedSwatches() {
-  const band = t => Math.floor(((t.h - Colour.HUE_START + 360) % 360) / Colour.HUE_BAND);
-  const earthBand = t => Math.floor(((t.h - Colour.EARTH_HUE[0] + 360) % 360) / Colour.EARTH_BAND);
+  const band = t => Math.floor(((t.h - Color.HUE_START + 360) % 360) / Color.HUE_BAND);
+  const earthBand = t => Math.floor(((t.h - Color.EARTH_HUE[0] + 360) % 360) / Color.EARTH_BAND);
   return [...state.swatches].sort((x, y) => {
-    const A = Colour.oklch(x.hex), B = Colour.oklch(y.hex);
-    const ta = Colour.colourTier(A), tb = Colour.colourTier(B);
+    const A = Color.oklch(x.hex), B = Color.oklch(y.hex);
+    const ta = Color.colorTier(A), tb = Color.colorTier(B);
     if (ta !== tb) return ta - tb;
 
     /* Neutrals have no hue worth reading — a plain run from white to black. */
@@ -2385,20 +2385,20 @@ function renderSwatches() {
       <span class="sw-own${n ? "" : " none"}">${n ? n + (n === 1 ? " roll" : " rolls") : "none left"}</span>
     </button>`;
   }).join("") : `<p class="empty-note" style="padding:14px">${swFilter === "all"
-      ? "No colours yet. They appear as you add spools, or add one by hand."
+      ? "No colors yet. They appear as you add spools, or add one by hand."
       : "Nothing here in " + esc([swFilter, swFill].filter(x => x !== "all").join(" ")) + " yet."}</p>`;
   const owned = list.filter(sw => swatchStock(sw)).length;
   document.getElementById("swatch-meta").textContent =
-    list.length ? `${list.length} colours · ${owned} in stock` : "";
+    list.length ? `${list.length} colors · ${owned} in stock` : "";
 }
 
-/* ================= reading a colour off the camera =================
+/* ================= reading a color off the camera =================
    The library does not have every filament ever made, so the fallback is to
-   point the phone at the spool and read the colour off it directly.
+   point the phone at the spool and read the color off it directly.
 
    The live preview, deliberately, and not a captured photo. A phone's photo
    pipeline — HDR merge, scene optimisation, saturation — exists to make
-   pictures look good, and it moves colours far enough to make the reading
+   pictures look good, and it moves colors far enough to make the reading
    worthless. Preview frames skip most of that, which is why what you see in
    the viewfinder matches the spool in your hand.
 
@@ -2406,30 +2406,30 @@ function renderSwatches() {
    camera track; there is no way to arm the camera app's flash from a page. */
 
 /* camera-thin, from SVG Repo. Drawn as filled outlines rather than strokes, so
-   it takes currentColor as a fill and the button's hover colour carries. */
+   it takes currentColor as a fill and the button's hover color carries. */
 const CAMERA_ICON = `<svg viewBox="0 0 256 256" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M208,60H178.13477l-14.8125-22.21875A3.99853,3.99853,0,0,0,159.99414,36h-64A3.9985,3.9985,0,0,0,92.666,37.78125L77.85352,60H48A20.02229,20.02229,0,0,0,28,80V192a20.02229,20.02229,0,0,0,20,20H208a20.02229,20.02229,0,0,0,20-20V80A20.02229,20.02229,0,0,0,208,60Zm12,132a12.01312,12.01312,0,0,1-12,12H48a12.01312,12.01312,0,0,1-12-12V80A12.01312,12.01312,0,0,1,48,68H79.99414a3.99853,3.99853,0,0,0,3.32813-1.78125L98.13477,44h59.71875L172.666,66.21875A3.9985,3.9985,0,0,0,175.99414,68H208a12.01312,12.01312,0,0,1,12,12ZM128,92a40,40,0,1,0,40,40A40.04584,40.04584,0,0,0,128,92Zm0,72a32,32,0,1,1,32-32A32.03667,32.03667,0,0,1,128,164Z"/></svg>`;
 
-/* The body colour of a patch of pixels, as #RRGGBB.
+/* The body color of a patch of pixels, as #RRGGBB.
  *
  * Not a mean. The torch leaves a specular highlight on glossy filament that is
  * nearly white, and any patch big enough to be steady also catches shadow at
  * the edge of the winding. Averaging everything drags the answer toward both
- * and returns a washed-out version of the colour.
+ * and returns a washed-out version of the color.
  *
  * So the pixels are ranked by luminance and only the middle half is averaged.
  * The band is symmetric on purpose: trimming more from one end than the other
- * would bias every reading that way, which is its own kind of colour shift.
+ * would bias every reading that way, which is its own kind of color shift.
  * On an evenly lit patch every pixel is alike and this returns it exactly. */
-/* A hue wheel with a brightness slider, opened on whatever colour is already
+/* A hue wheel with a brightness slider, opened on whatever color is already
    chosen. Built as its own scrim for the same reason the sampler is: modal()
    would close the swatch sheet and take the half-filled form with it. */
 function openWheel(startHex, onPick) {
-  let { h, s, v } = Colour.hexToHsv(startHex);
+  let { h, s, v } = Color.hexToHsv(startHex);
 
   const scrim = document.createElement("div");
   scrim.className = "scrim sampler";
   scrim.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">
-    <h2>Pick a colour</h2>
+    <h2>Pick a color</h2>
     <div class="wheel" id="cw-wheel">
       <div class="cw-layer cw-hue"></div><div class="cw-layer cw-sat"></div>
       <div class="cw-layer cw-shade" id="cw-shade"></div>
@@ -2443,7 +2443,7 @@ function openWheel(startHex, onPick) {
     </div>
     <div class="sheet-foot"><span class="spacer"></span>
       <button class="btn ghost" id="cw-cancel">Cancel</button>
-      <button class="btn primary" id="cw-use">Use this colour</button></div>
+      <button class="btn primary" id="cw-use">Use this color</button></div>
   </div>`;
   document.body.appendChild(scrim);
 
@@ -2455,7 +2455,7 @@ function openWheel(startHex, onPick) {
   const valEl = scrim.querySelector("#cw-val");
 
   function paint() {
-    const hex = Colour.hsvToHex(h, s, v);
+    const hex = Color.hsvToHex(h, s, v);
     /* The disc always shows full-brightness hues; darkening is an overlay, so
        the dot stays visible instead of vanishing into a black wheel. */
     shade.style.opacity = String(1 - v);
@@ -2501,7 +2501,7 @@ function openWheel(startHex, onPick) {
   document.addEventListener("keydown", onKey, true);
   scrim.addEventListener("pointerdown", e => { if (e.target === scrim) shut(); });
   scrim.querySelector("#cw-cancel").onclick = shut;
-  scrim.querySelector("#cw-use").onclick = () => { onPick(Colour.hsvToHex(h, s, v)); shut(); };
+  scrim.querySelector("#cw-use").onclick = () => { onPick(Color.hsvToHex(h, s, v)); shut(); };
 
   paint();
 }
@@ -2511,7 +2511,7 @@ function openWheel(startHex, onPick) {
  * Falls back to whatever `pickPhoto` does when there is no camera or the
  * permission is refused — on a desktop that is the only route, and on a phone
  * it still allows a picture taken earlier. */
-async function sampleColour(onPick, pickPhoto) {
+async function sampleColor(onPick, pickPhoto) {
   const media = navigator.mediaDevices;
   if (media && media.getUserMedia) {
     try {
@@ -2528,7 +2528,7 @@ async function sampleColour(onPick, pickPhoto) {
   pickPhoto();
 }
 
-/* The picture, a square you drive over it, and the colour under that square.
+/* The picture, a square you drive over it, and the color under that square.
  *
  * Opened over the swatch sheet rather than replacing it — modal() would close
  * the form and lose whatever had been typed in — so this builds its own scrim
@@ -2565,7 +2565,7 @@ async function openSampler(source, onPick) {
   const scrim = document.createElement("div");
   scrim.className = "scrim sampler";
   scrim.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">
-    <h2>Read the colour</h2>
+    <h2>Read the color</h2>
     <p class="empty-note" style="margin:0 0 10px">${live
       ? "Hold the square over the filament, away from the shine and the edge of the winding. Drag and zoom to place it."
       : "Drag to move the picture and pinch or slide to zoom. Put the square on the filament itself."}</p>
@@ -2580,7 +2580,7 @@ async function openSampler(source, onPick) {
     </div>
     <div class="sheet-foot"><span class="spacer"></span>
       <button class="btn ghost" id="cs-cancel">Cancel</button>
-      <button class="btn primary" id="cs-use">Use this colour</button></div>
+      <button class="btn primary" id="cs-use">Use this color</button></div>
   </div>`;
   document.body.appendChild(scrim);
 
@@ -2597,7 +2597,7 @@ async function openSampler(source, onPick) {
   let cx = srcW / 2, cy = srcH / 2;   /* the frame point under the square */
   let hex = null;
   let warmth = 0;          /* manual white balance, when the camera won't do one */
-  let sensorWarmth = true;  /* until the camera is caught ignoring a colour temperature */
+  let sensorWarmth = true;  /* until the camera is caught ignoring a color temperature */
 
   const maxScale = () => fit * 14;
 
@@ -2620,7 +2620,7 @@ async function openSampler(source, onPick) {
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, stageW, stageH);
-    /* Smoothing invents colours between pixels, which is the one thing this
+    /* Smoothing invents colors between pixels, which is the one thing this
        must not do once you are zoomed in far enough to care. */
     ctx.imageSmoothingEnabled = scale < 1;
     ctx.setTransform(scale * dpr, 0, 0, scale * dpr,
@@ -2639,8 +2639,8 @@ async function openSampler(source, onPick) {
     const y = Math.max(0, Math.min(srcH - 1, Math.round(cy - side / 2)));
     const w = Math.min(side, srcW - x);
     const h = Math.min(side, srcH - y);
-    const read = w > 0 && h > 0 ? Colour.bodyHex(fullCtx.getImageData(x, y, w, h).data) : null;
-    hex = Colour.warmShift(read, warmth);
+    const read = w > 0 && h > 0 ? Color.bodyHex(fullCtx.getImageData(x, y, w, h).data) : null;
+    hex = Color.warmShift(read, warmth);
     hexEl.textContent = hex || "—";
     chip.style.background = hex || "transparent";
   }
@@ -2750,7 +2750,7 @@ async function openSampler(source, onPick) {
   }).join("");
 
   /* Warmth always exists, whoever ends up doing the work. If the camera will
-     take a colour temperature it is applied at the sensor, which is better —
+     take a color temperature it is applied at the sensor, which is better —
      the frames arrive corrected. If it will not, the same control corrects the
      reading instead. That is a weaker thing, and it is why the preview keeps
      looking as it did while the chip moves: the chip is the answer, the stage
@@ -2794,7 +2794,7 @@ async function openSampler(source, onPick) {
     }
   }
 
-  /* Asking the sensor for a colour temperature, and checking it actually took.
+  /* Asking the sensor for a color temperature, and checking it actually took.
    *
    * Two ways this fails without throwing. `advanced` constraint sets are
    * dropped whole when they cannot be satisfied, so pairing the temperature
@@ -2884,16 +2884,16 @@ function swatchForm(existing, onCreate) {
       <div class="field"><label>Material</label>
         <select id="w-mat">${MATERIALS.map(m => `<option${m === sw.material ? " selected" : ""}>${m}</option>`).join("")}</select>
       </div>
-      <div class="field"><label>Colour name</label>
+      <div class="field"><label>Color name</label>
         <input type="text" id="w-name" value="${esc(sw.colorName)}" placeholder="Galaxy Silver">
       </div>
     </div>
     <div class="field"><label>Hex</label>
       <div class="swatchrow">
         <button type="button" class="chipbtn" id="w-hex" style="background:${esc(sw.hex)}"
-          title="Pick a colour" aria-label="Pick a colour"></button>
+          title="Pick a color" aria-label="Pick a color"></button>
         <input type="text" id="w-code" class="mono" value="${esc(sw.hex.toUpperCase())}" maxlength="7" spellcheck="false" placeholder="#RRGGBB">
-        <button class="iconbtn" id="w-cam" title="Read the colour off a photo" aria-label="Read the colour off a photo">${CAMERA_ICON}</button>
+        <button class="iconbtn" id="w-cam" title="Read the color off a photo" aria-label="Read the color off a photo">${CAMERA_ICON}</button>
         <input type="file" id="w-shot" accept="image/*" capture="environment" hidden>
       </div>
       <label class="never" style="display:inline-flex;margin-top:9px">
@@ -2904,7 +2904,7 @@ function swatchForm(existing, onCreate) {
         <a class="btn ghost tiny linkbtn" id="w-find" href="https://filamentcolors.xyz/colormatch/" target="_blank" rel="noopener noreferrer">Match by hex ↗</a>
       </div>
     </div>
-    ${existing ? `<p class="empty-note" style="margin:0 0 4px">${n ? `${n} ${n === 1 ? "roll" : "rolls"} in stock right now.` : "Nothing in stock in this colour."}</p>` : ""}
+    ${existing ? `<p class="empty-note" style="margin:0 0 4px">${n ? `${n} ${n === 1 ? "roll" : "rolls"} in stock right now.` : "Nothing in stock in this color."}</p>` : ""}
     <div class="sheet-foot">
       ${existing ? `<button class="btn danger" id="w-del">Delete</button>` : ""}
       <span class="spacer"></span>
@@ -2918,7 +2918,7 @@ function swatchForm(existing, onCreate) {
       if (/^[0-9a-f]{3}$/i.test(x)) x = x.split("").map(c => c + c).join("");
       return /^[0-9a-f]{6}$/i.test(x) ? "#" + x.toUpperCase() : null;
     };
-    /* The chip is the current colour and the field is the same thing spelled
+    /* The chip is the current color and the field is the same thing spelled
        out; whichever moves, this is what keeps the two in step. */
     let current = clean(sw.hex) || "#3E7BD1";
     const setHex = next => {
@@ -2935,7 +2935,7 @@ function swatchForm(existing, onCreate) {
        doubles as a way to use a picture taken earlier. */
     const shot = scrim.querySelector("#w-shot");
     const apply = setHex;
-    scrim.querySelector("#w-cam").onclick = () => sampleColour(apply, () => shot.click());
+    scrim.querySelector("#w-cam").onclick = () => sampleColor(apply, () => shot.click());
     shot.onchange = async () => {
       const file = shot.files && shot.files[0];
       shot.value = "";   /* so the same picture can be reused without reopening the form */
@@ -2950,7 +2950,7 @@ function swatchForm(existing, onCreate) {
     const lib = scrim.querySelector("#w-lib");
     const brandEl = scrim.querySelector("#w-brand"), nameEl = scrim.querySelector("#w-name");
     /* Polymaker publishes its own hex codes, so for their spools the button
-       stops being a search and becomes an answer: it fills the colour in rather
+       stops being a search and becomes an answer: it fills the color in rather
        than sending you off to look it up. Anything else keeps the old link. */
     let poly = null;
     const syncLink = () => {
@@ -2981,11 +2981,11 @@ function swatchForm(existing, onCreate) {
         toast(`${poly.name} — ${poly.hex}, straight from Polymaker.`);
         return;
       }
-      /* A name matching several of their colours is too vague to act on, and a
+      /* A name matching several of their colors is too vague to act on, and a
          guessed hex is worse than none. Say so rather than opening a search. */
       if (poly && poly.ambiguous > 1) {
         e.preventDefault();
-        toast(`${poly.ambiguous} Polymaker colours match that name — be more specific.`);
+        toast(`${poly.ambiguous} Polymaker colors match that name — be more specific.`);
       }
     };
     brandEl.oninput = syncLink;
