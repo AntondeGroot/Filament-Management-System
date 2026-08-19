@@ -485,8 +485,8 @@ body.dragging{cursor:grabbing;user-select:none}
   <div class="log">
     <div class="log-head"><div class="eyebrow">Swatches</div><div class="hair"></div>
       <div class="meta mono" style="font-size:11px;color:var(--ink-soft)" id="swatch-meta"></div></div>
-    <p class="empty-note" style="max-width:62ch">Every color you own, sorted by hue. Rolls you buy land here
-      automatically and stay after the last one runs out — so this doubles as a record of what you used to have.</p>
+    <p class="empty-note" style="max-width:62ch">Every color and material you own. You first create swatches, and then create
+      spools from them. They land in the spools tab under 'unassigned'. The swatches double as a record of what you used to have.</p>
     <div class="chips" id="swatch-filter"></div>
     <div class="swatches" id="swatch-list"></div>
   </div>
@@ -2890,12 +2890,14 @@ function swatchForm(existing, onCreate) {
     </div>
     <div class="field"><label>Hex</label>
       <div class="swatchrow">
+        <button class="iconbtn" id="w-cam" title="Read the color off a photo" aria-label="Read the color off a photo">${CAMERA_ICON}</button>
         <button type="button" class="chipbtn" id="w-hex" style="background:${esc(sw.hex)}"
           title="Pick a color" aria-label="Pick a color"></button>
         <input type="text" id="w-code" class="mono" value="${esc(sw.hex.toUpperCase())}" maxlength="7" spellcheck="false" placeholder="#RRGGBB">
-        <button class="iconbtn" id="w-cam" title="Read the color off a photo" aria-label="Read the color off a photo">${CAMERA_ICON}</button>
         <input type="file" id="w-shot" accept="image/*" capture="environment" hidden>
       </div>
+      <p class="empty-note" style="padding:5px 2px 0">Don't know the hex? Read it off the spool with the camera,
+        then tap the chip to fine-tune it on the wheel.</p>
       <label class="never" style="display:inline-flex;margin-top:9px">
         <input type="checkbox" id="w-clear"${sw.transparent ? " checked" : ""}> transparent
       </label>
