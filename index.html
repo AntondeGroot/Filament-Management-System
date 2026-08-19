@@ -1448,7 +1448,6 @@ function swipeActions(s) {
     left: empty ? { label: "Delete", danger: true, run: () => {
             detach(s.id);
             state.spools = state.spools.filter(x => x.id !== s.id);
-            state.projects.forEach(p => p.spoolIds = p.spoolIds.map(x => x === s.id ? null : x));
             toast(`${info(s).colorName} deleted.`);
           } }
         : { label: "Reorder", run: () => place(s.id, { zone: "reorder" }) },
@@ -1737,7 +1736,6 @@ function openSpool(id) {
     on("#d-del", () => {
       detach(s.id);
       state.spools = state.spools.filter(x => x.id !== s.id);
-      state.projects.forEach(p => p.spoolIds = p.spoolIds.map(x => x === s.id ? null : x));
       close(); save(); render();
       toast(`${w.colorName} deleted${pile > 1 ? ` · ${pile - 1} left` : ""}.`);
     });
