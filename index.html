@@ -283,7 +283,7 @@ body.dragging{cursor:grabbing;user-select:none}
 .ugroup.empty .ubar span:first-child{opacity:.72}
 .fempty{font-size:12px;color:var(--ink-soft);padding:2px 0 6px}
 .proj .fn{font-family:var(--mono);font-size:10px;color:var(--ink-soft);overflow-wrap:anywhere}
-.dropzone{border:2px dashed var(--rule);border-radius:4px;padding:16px;text-align:center;font-size:13px;color:var(--ink-soft);cursor:pointer}
+.dropzone{border:2px dashed var(--rule);border-radius:4px;padding:16px;text-align:justify;font-size:13px;color:var(--ink-soft);cursor:pointer}
 .dropzone:hover{border-color:var(--ink);color:var(--ink)}
 
 /* ---------- swipe (touch only) ---------- */
@@ -537,7 +537,7 @@ body.dragging{cursor:grabbing;user-select:none}
   <div class="log">
     <div class="log-head"><div class="eyebrow">Projects</div><div class="hair"></div>
       <div class="meta mono" id="log-meta" style="font-size:11px;color:var(--ink-soft)"></div></div>
-    <div class="dropzone" id="dropzone">Pick <b>.3mf</b> or <b>.stl</b> files to keep track of</div>
+    <div class="dropzone" id="dropzone">Pick <b>.3mf</b> or <b>.stl</b> files to keep track of which colors were used. This does not download the file or let you open it, it only saves a preview.</div>
     <!-- Deliberately unfiltered. Android turns an accept list into MIME types
          for the picker's intent, and neither .3mf nor .stl has a MIME type
          every provider agrees on — a cloud provider that resolves one and not
