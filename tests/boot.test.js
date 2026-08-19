@@ -5,7 +5,7 @@ const settle = () => new Promise(done => setTimeout(done, 0));
 
 describe("boot", () => {
   it("draws nothing until the module bridge has run", async () => {
-    /* What a cold start actually looks like for as long as the five src/*.js
+    /* What a cold start actually looks like for as long as the src/*.js
        fetches are in flight: the classic script has run and called load(), and
        none of the modules exist yet. The block that installs them is a module
        script, so it is deferred — it cannot possibly have run by then. */
