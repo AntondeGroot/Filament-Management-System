@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readStlTriangles } from "../src/mesh.js";
+import { contentBox, readStlTriangles } from "../src/mesh.js";
 
 /* No app, no document, no JSDOM — the module is imported and called. That is
    the whole point of moving it out. */
@@ -71,5 +71,28 @@ describe("readStlTriangles()", () => {
       [[0, 0, 0], [10, 0, 0], [0, -10, 0]],
       [[0, 0, 0], [0, 0, 25], [-1.5, 0, 0]],
     ]);
+  });
+});
+
+/* A plate preview as pixels: a background everywhere, and one drawn block. */
+function plate({ w, h, background, block }) {
+  const data = new Uint8ClampedArray(w * h * 4);
+  for (let i = 0; i < w * h; i++) data.set(background, i * 4);
+  for (let y = block.y; y < block.y + block.h; y++)
+    for (let x = block.x; x < block.x + block.w; x++) data.set([90, 110, 130, 255], (y * w + x) * 4);
+  return data;
+}
+
+const BLOCK = { x: 4, y: 2, w: 3, h: 2 };
+
+describe("contentBox()", () => {
+  it("finds the drawn part, whether the margin is white or transparent", () => {
+    /* Both are the same picture. Slicers differ on what they leave around it,
+       and the crop has to come out the same either way. */
+    const onWhite = plate({ w: 12, h: 8, background: [255, 255, 255, 255], block: BLOCK });
+    const onNothing = plate({ w: 12, h: 8, background: [0, 0, 0, 0], block: BLOCK });
+
+    expect(contentBox(onWhite, 12, 8)).toEqual(BLOCK);
+    expect(contentBox(onNothing, 12, 8)).toEqual(BLOCK);
   });
 });
