@@ -336,12 +336,23 @@ body.dragging{cursor:grabbing;user-select:none}
 .tuning label{display:grid;grid-template-columns:74px 1fr auto;gap:9px;align-items:center;font-size:11px;
   font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft)}
 .tuning .val{font-family:var(--mono);font-size:11px;min-width:34px;text-align:right}
-.readout{display:flex;gap:9px;align-items:center;margin-top:11px}
-.readout .chip{width:36px;height:36px;border-radius:3px;border:1px solid var(--ink);flex:0 0 auto}
-.readout .hexcode{font-family:var(--mono);font-size:15px;letter-spacing:.04em}
-.sheet .ask{font-size:13px;line-height:1.45;color:var(--ink-soft);margin:0}
-.sheet-foot{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
-.sheet-foot .spacer{flex:1}
+/* Full screen, and the picked color is the ground rather than a chip on it —
+   see src/wheel.js for why. The script paints the background and nothing else:
+   the controls carry their own panel and ink so that none of them re-inks as
+   the field moves, and the color runs right up to their edges. */
+.cwfull{position:fixed;inset:0;z-index:110;display:flex;flex-direction:column;gap:18px;overflow:auto}
+/* Brightness rides with the title rather than under the wheel. Anywhere below
+   it, the slider is a white object standing in the middle of the field being
+   judged; up here it is part of the same header the title is, and the color
+   runs unbroken from the wheel to the buttons. */
+.cwfull .cw-top{background:var(--panel);padding:calc(12px + env(safe-area-inset-top)) 18px 13px}
+.cwfull .cw-head{display:flex;align-items:baseline;gap:12px}
+.cwfull h2{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;font-size:19px;margin:0}
+.cwfull .hexcode{font-family:var(--mono);font-size:16px;letter-spacing:.04em;margin-left:auto}
+.cwfull .cw-top input{display:block;width:min(268px,70vw);margin:13px auto 0;accent-color:var(--ink)}
+.cwfull .cw-foot{margin-top:auto;display:flex;gap:8px;padding:0 18px calc(16px + env(safe-area-inset-bottom))}
+.cwfull .btn{flex:1;min-height:46px;background:var(--panel)}
+.cwfull .btn.primary{background:var(--ink)}
 
 #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(12px);background:var(--machine);color:#EDECE8;padding:9px 16px;border-radius:3px;font-size:13px;z-index:120;opacity:0;transition:opacity .18s,transform .18s;pointer-events:none;max-width:88vw;text-align:center}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -570,7 +581,8 @@ body.dragging{cursor:grabbing;user-select:none}
   import * as Desiccant from "./src/desiccant.js";
   import * as Reminders from "./src/reminders.js";
   import * as Setup from "./src/setup.js";
-  Object.assign(window, { Mesh, Drying, Polymaker, Batch, Color, Alarms, Intake, Desiccant, Reminders, Setup });
+  import * as Wheel from "./src/wheel.js";
+  Object.assign(window, { Mesh, Drying, Polymaker, Batch, Color, Alarms, Intake, Desiccant, Reminders, Setup, Wheel });
   window.bridged();
 </script>
 
@@ -2382,92 +2394,6 @@ const CAMERA_ICON = `<svg viewBox="0 0 256 256" width="18" height="18" fill="cur
  * The band is symmetric on purpose: trimming more from one end than the other
  * would bias every reading that way, which is its own kind of color shift.
  * On an evenly lit patch every pixel is alike and this returns it exactly. */
-/* A hue wheel with a brightness slider, opened on whatever color is already
-   chosen. Built as its own scrim for the same reason the sampler is: modal()
-   would close the swatch sheet and take the half-filled form with it. */
-function openWheel(startHex, onPick) {
-  let { h, s, v } = Color.hexToHsv(startHex);
-
-  const scrim = document.createElement("div");
-  scrim.className = "scrim sampler";
-  scrim.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">
-    <h2>Pick a color</h2>
-    <div class="wheel" id="cw-wheel">
-      <div class="cw-layer cw-hue"></div><div class="cw-layer cw-sat"></div>
-      <div class="cw-layer cw-shade" id="cw-shade"></div>
-      <div class="cw-dot" id="cw-dot"></div>
-    </div>
-    <input type="range" id="cw-val" min="0" max="100" value="${Math.round(v * 100)}"
-      style="width:100%;margin-top:14px" aria-label="Brightness">
-    <div class="readout">
-      <span class="chip" id="cw-chip"></span>
-      <span class="hexcode" id="cw-hex"></span>
-    </div>
-    <div class="sheet-foot"><span class="spacer"></span>
-      <button class="btn ghost" id="cw-cancel">Cancel</button>
-      <button class="btn primary" id="cw-use">Use this color</button></div>
-  </div>`;
-  document.body.appendChild(scrim);
-
-  const wheel = scrim.querySelector("#cw-wheel");
-  const dot = scrim.querySelector("#cw-dot");
-  const shade = scrim.querySelector("#cw-shade");
-  const chip = scrim.querySelector("#cw-chip");
-  const hexEl = scrim.querySelector("#cw-hex");
-  const valEl = scrim.querySelector("#cw-val");
-
-  function paint() {
-    const hex = Color.hsvToHex(h, s, v);
-    /* The disc always shows full-brightness hues; darkening is an overlay, so
-       the dot stays visible instead of vanishing into a black wheel. */
-    shade.style.opacity = String(1 - v);
-    /* Twelve o'clock is hue 0 and it runs clockwise, matching the gradient. */
-    const rad = (h * Math.PI) / 180;
-    dot.style.left = `${50 + Math.sin(rad) * s * 50}%`;
-    dot.style.top = `${50 - Math.cos(rad) * s * 50}%`;
-    dot.style.background = hex;
-    chip.style.background = hex;
-    hexEl.textContent = hex;
-  }
-
-  function pickAt(clientX, clientY) {
-    const box = wheel.getBoundingClientRect();
-    const dx = clientX - (box.left + box.width / 2);
-    const dy = clientY - (box.top + box.height / 2);
-    const radius = box.width / 2;
-    s = Math.min(1, Math.hypot(dx, dy) / radius);
-    /* atan2(dx, -dy) measures clockwise from twelve o'clock rather than
-       anticlockwise from three, which is the convention the gradient uses. */
-    h = (Math.atan2(dx, -dy) * 180) / Math.PI;
-    if (h < 0) h += 360;
-    paint();
-  }
-
-  let dragging = false;
-  wheel.addEventListener("pointerdown", e => {
-    dragging = true;
-    wheel.setPointerCapture(e.pointerId);
-    pickAt(e.clientX, e.clientY);
-  });
-  wheel.addEventListener("pointermove", e => { if (dragging) pickAt(e.clientX, e.clientY); });
-  const drop = () => { dragging = false; };
-  wheel.addEventListener("pointerup", drop);
-  wheel.addEventListener("pointercancel", drop);
-  valEl.oninput = () => { v = Number(valEl.value) / 100; paint(); };
-
-  const shut = () => {
-    scrim.remove();
-    document.removeEventListener("keydown", onKey, true);
-  };
-  const onKey = e => { if (e.key === "Escape") { e.stopPropagation(); shut(); } };
-  document.addEventListener("keydown", onKey, true);
-  scrim.addEventListener("pointerdown", e => { if (e.target === scrim) shut(); });
-  scrim.querySelector("#cw-cancel").onclick = shut;
-  scrim.querySelector("#cw-use").onclick = () => { onPick(Color.hsvToHex(h, s, v)); shut(); };
-
-  paint();
-}
-
 /* Opens the back camera and hands the sampler a live stream.
  *
  * Falls back to whatever `pickPhoto` does when there is no camera or the
@@ -2890,7 +2816,7 @@ function swatchForm(existing) {
       picker.style.background = next;
       code.value = next;
     };
-    picker.onclick = () => openWheel(current, setHex);
+    picker.onclick = () => Wheel.open(current, setHex);
     code.oninput = () => { const c = clean(code.value); if (c) { current = c; picker.style.background = c; } };
     code.onblur = () => setHex(clean(code.value) || current);
 
