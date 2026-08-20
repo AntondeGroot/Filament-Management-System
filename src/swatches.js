@@ -123,11 +123,105 @@ export const whereSheetHTML = (sw, rolls, esc) => `<h2>${esc(sw.colorName)}</h2>
   ${whereHTML(rolls, esc)}
   <div class="sheet-foot"><span class="spacer"></span><button class="btn primary" data-close>Close</button></div>`;
 
+/* A note is one thing you know about a filament that the app cannot work out:
+ * a speed it will not tolerate, the fact that it makes the best support
+ * interface you own, the fact that it snapped twice in the AMS.
+ *
+ * The kind is an icon, not a colour. A swatch row is painted in the filament's
+ * own colour, so there is no ground to put a gold star or a red exclamation on
+ * — on Sulfur Yellow the gold star simply is not there. Shape survives what
+ * colour cannot, so the icons take the row's ink and are told apart by their
+ * outline, the way the printed mark and the magnifier already are. */
+export const NOTE_KINDS = [
+  { key: "", label: "None" },
+  { key: "star", label: "Favourite" },
+  { key: "warn", label: "Careful" },
+  { key: "spec", label: "Setting" },
+];
+
+const NOTE_PATH = {
+  star: `<path d="m12 3 2.6 5.3 5.9.85-4.25 4.15 1 5.85L12 16.4l-5.25 2.75 1-5.85L3.5 9.15l5.9-.85Z"/>`,
+  warn: `<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>`,
+  spec: `<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>`,
+};
+
+/* Filled for the star — a hollow one at 14px reads as a scribble — and hollow
+   for the other two, which are outlines by nature. */
+export const noteIcon = (kind, size = 14) => (NOTE_PATH[kind]
+  ? `<svg viewBox="0 0 24 24" width="${size}" height="${size}" style="flex:none"
+      fill="${kind === "star" ? "currentColor" : "none"}" stroke="currentColor"
+      stroke-width="${kind === "star" ? 1.6 : 2}" stroke-linecap="round" stroke-linejoin="round"
+      aria-hidden="true">${NOTE_PATH[kind]}</svg>`
+  : "");
+
+/* Nothing stored for a note that says nothing, so an emptied note leaves no
+   trace behind on the swatch. */
+export const noteFrom = (kind, text) => (kind || text ? { kind, text } : null);
+export const hasNote = sw => !!(sw.note && (sw.note.kind || sw.note.text));
+
+/* Its own line under the row, because a note is a sentence and the row above it
+   is a set of readings. One line only — it is a reminder here, and the whole of
+   it is in the sheet. */
+const noteLine = (sw, esc) => (hasNote(sw)
+  ? `<span class="sw-note">${noteIcon(sw.note.kind)}<span>${esc(sw.note.text)}</span></span>`
+  : "");
+
 export const rowHTML = (sw, stock, esc) =>
   `<button class="swatch${sw.transparent ? " clear" : ""}" data-swatch="${sw.id}" style="${paint(sw, esc)}">
     <span class="sw-name">${esc(sw.colorName)}</span>
     <span class="sw-meta">${esc(sw.brand)} · ${esc(sw.material)}</span>
     <span class="sw-hex">${esc(sw.hex.toUpperCase())}</span>
     <span class="sw-own${stock ? "" : " none"}">${stock ? stock + (stock === 1 ? " roll" : " rolls") : "none left"}</span>
-    ${printedMark(sw)}${findButton(sw, stock)}
+    ${printedMark(sw)}${noteLine(sw, esc)}${findButton(sw, stock)}
   </button>`;
+
+/* The swatch's own sheet. Markup only — every control is wired by swatchForm()
+   in index.html, which owns the camera, the wheel and the saving. What it needs
+   from the page comes in through `p`: the escape, the material list, and the
+   brands already in the library. */
+export const formHTML = (sw, p) => `<h2>${p.existing ? "Swatch" : "Add a swatch"}</h2>
+  <div class="field"><label>Brand</label>
+    <input type="text" id="w-brand" value="${p.esc(sw.brand)}" list="brands" placeholder="Bambu Lab, Prusament…">
+    <datalist id="brands">${p.brands.map(b => `<option>${p.esc(b)}</option>`).join("")}</datalist>
+  </div>
+  <div class="two">
+    <div class="field"><label>Material</label>
+      <select id="w-mat">${p.materials.map(m => `<option${m === sw.material ? " selected" : ""}>${m}</option>`).join("")}</select>
+    </div>
+    <div class="field"><label>Color name</label>
+      <input type="text" id="w-name" value="${p.esc(sw.colorName)}" placeholder="Galaxy Silver">
+    </div>
+  </div>
+  <div class="field"><label>Hex</label>
+    <div class="swatchrow">
+      <button class="iconbtn" id="w-cam" title="Read the color off a photo" aria-label="Read the color off a photo">${p.cameraIcon}</button>
+      <button type="button" class="chipbtn" id="w-hex" style="background:${p.esc(sw.hex)}"
+        title="Pick a color" aria-label="Pick a color"></button>
+      <input type="text" id="w-code" class="mono" value="${p.esc(sw.hex.toUpperCase())}" maxlength="7" spellcheck="false" placeholder="#RRGGBB">
+      <input type="file" id="w-shot" accept="image/*" capture="environment" hidden>
+    </div>
+    <p class="empty-note" style="padding:5px 2px 0">Don't know the hex? Read it off the spool with the camera,
+      then tap the chip to fine-tune it on the wheel.</p>
+    <label class="never" style="display:inline-flex;margin-top:9px">
+      <input type="checkbox" id="w-clear"${sw.transparent ? " checked" : ""}> transparent
+    </label>
+    <label class="never" style="display:inline-flex;margin:9px 0 0 16px" title="You have printed a chip in this color"><input type="checkbox" id="w-print"${sw.printed ? " checked" : ""}> printed swatch</label>
+    <div class="linkrow">
+      <a class="btn ghost tiny linkbtn" id="w-lib" href="#" target="_blank" rel="noopener noreferrer">Find it in the library ↗</a>
+      <a class="btn ghost tiny linkbtn" id="w-find" href="https://filamentcolors.xyz/colormatch/" target="_blank" rel="noopener noreferrer">Match by hex ↗</a>
+    </div>
+  </div>
+  <div class="field"><label>Note</label>
+    <div class="chips" style="margin-bottom:7px">${NOTE_KINDS.map(k =>
+      `<button type="button" class="btn tiny${(sw.note && sw.note.kind || "") === k.key ? " on" : ""}" data-nkind="${k.key}"
+        >${noteIcon(k.key, 12)}${k.label}</button>`).join("")}</div>
+    <input type="text" id="w-note" value="${p.esc(sw.note ? sw.note.text : "")}"
+      placeholder="50 mm/s or it strings badly">
+  </div>
+  ${p.existing ? `<p class="empty-note" style="margin:0 0 4px">${p.n ? `${p.n} ${p.n === 1 ? "roll" : "rolls"} in stock right now.` : "Nothing in stock in this color."}</p>` : ""}
+  <div class="sheet-foot">
+    ${p.existing ? `<button class="btn danger" id="w-del">Delete</button>` : ""}
+    <span class="spacer"></span>
+    ${p.existing ? `<button class="btn ghost" id="w-spool">Add a spool of this</button>` : ""}
+    <button class="btn primary" id="w-save">${p.existing ? "Save" : "Add swatch"}</button>
+  </div>`;
