@@ -22,9 +22,12 @@ import * as alarms from "../src/alarms.js";
 import * as batch from "../src/batch.js";
 import * as intake from "../src/intake.js";
 import * as color from "../src/color.js";
+import * as desiccant from "../src/desiccant.js";
 import * as drying from "../src/drying.js";
 import * as mesh from "../src/mesh.js";
 import * as polymaker from "../src/polymaker.js";
+import * as reminders from "../src/reminders.js";
+import * as setup from "../src/setup.js";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 
@@ -35,7 +38,8 @@ const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
  * The same handover is performed here instead, from Node's own imports. It has
  * to happen in beforeParse: the inline script runs during construction and
  * reaches for these while rendering the first frame. */
-const MODULES = { Alarms: alarms, Batch: batch, Color: color, Drying: drying, Intake: intake, Mesh: mesh, Polymaker: polymaker };
+const MODULES = { Alarms: alarms, Batch: batch, Color: color, Desiccant: desiccant, Drying: drying,
+                  Intake: intake, Mesh: mesh, Polymaker: polymaker, Reminders: reminders, Setup: setup };
 
 /* Boots a fresh copy of the app.
  *
@@ -150,5 +154,40 @@ export function queuedAlarms(run) {
       a.schedule.at.getHours(),
     ],
     allowWhileIdle: a.schedule.allowWhileIdle,
+  }))`);
+}
+
+/* Puts the app on the Android path, with a plugin that remembers rather than
+ * notifies. Scheduling is the one part of the app with no visible output at
+ * all — what it does is hand a list to Android and forget about it — so this
+ * stub is the only place a test can see what was actually queued.
+ *
+ * getPending answers with whatever is still queued, because syncScheduled()
+ * cancels the lot before rebuilding: a stub that always answered "nothing
+ * pending" would let a leak through where every save doubled the queue. */
+export function stubAndroid(run) {
+  run(`(() => {
+    globalThis.__queue = [];
+    const LocalNotifications = {
+      checkPermissions: async () => ({ display: "granted" }),
+      requestPermissions: async () => ({ display: "granted" }),
+      getPending: async () => ({ notifications: globalThis.__queue.map(n => ({ id: n.id })) }),
+      cancel: async ({ notifications }) => {
+        const gone = new Set(notifications.map(n => n.id));
+        globalThis.__queue = globalThis.__queue.filter(n => !gone.has(n.id));
+      },
+      schedule: async ({ notifications }) => { globalThis.__queue.push(...notifications); },
+    };
+    window.Capacitor = { isNativePlatform: () => true, Plugins: { LocalNotifications } };
+    nativePerm = "granted";
+  })()`);
+}
+
+/* Rebuilds the queue the way a save does, and reports what Android was left
+   holding — again as plain data, in local time. */
+export async function nativelyScheduled(run) {
+  await run("syncScheduled()");
+  return run(`globalThis.__queue.map(n => ({
+    id: n.id, title: n.title, on: n.schedule.at.toDateString(),
   }))`);
 }
