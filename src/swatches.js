@@ -41,6 +41,29 @@ const printedMark = sw => (sw.printed
   ? `<span class="sw-print" title="Printed swatch" aria-label="Printed swatch">${MARK}</span>`
   : `<span class="sw-print"></span>`);
 
+export const listHTML = (list, stock, esc, filter) => (list.length
+  ? list.map(sw => rowHTML(sw, stock(sw), esc)).join("")
+  : `<p class="empty-note" style="padding:14px">${filter
+      ? "Nothing here in " + esc(filter) + " yet."
+      : "No colors yet. They appear as you add spools, or add one by hand."}</p>`);
+
+export const metaText = (list, stock) =>
+  (list.length ? `${list.length} colors · ${list.filter(stock).length} in stock` : "");
+
+/* Retired colors keep their own drawer under the library, shut by default.
+   They are not gone — you can still add a roll of one, which is the whole
+   reason they are not simply deleted — but they have stopped being part of
+   what you own, and a library you scan for what to print next should not have
+   them in it. Deliberately unfiltered: the drawer is opened on purpose, and a
+   filter that quietly emptied it would just look broken. */
+export const retiredHTML = (list, open, stock, esc) => (!list.length ? "" : `
+  <button class="log-head" data-swretired aria-expanded="${open}"
+      style="width:100%;background:none;border:0;font:inherit;color:inherit;padding:16px 0 7px;cursor:pointer">
+    <span class="eyebrow">Retired</span><span class="hair"></span>
+    <span class="meta">${list.length} ${list.length === 1 ? "color" : "colors"} ${open ? "▾" : "▸"}</span>
+  </button>
+  ${open ? `<div class="swatches">${list.map(sw => rowHTML(sw, stock(sw), esc)).join("")}</div>` : ""}`);
+
 /* The filter bar over the library. Counts are contextual, so PETG cannot
    promise three when CF is on and there is one. */
 export function chipsHTML({ fams, fills, fam, fill, count, esc }) {
@@ -159,6 +182,27 @@ export const noteIcon = (kind, size = 14) => (NOTE_PATH[kind]
 export const noteFrom = (kind, text) => (kind || text ? { kind, text } : null);
 export const hasNote = sw => !!(sw.note && (sw.note.kind || sw.note.text));
 
+/* Why you would not buy it again. Kept on the record rather than deleted with
+   the swatch: the point of writing it down is the next time you are in a shop
+   looking at that exact spool. */
+export const retiredIcon = (size = 14) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}"
+    style="flex:none" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
+    ><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg>`;
+
+const whyLine = (sw, esc) => (sw.retired && sw.retiredWhy
+  ? `<span class="sw-note">${retiredIcon()}<span>${esc(sw.retiredWhy)}</span></span>`
+  : "");
+
+/* What a roll of this color carries with it out onto the bench: the note's
+   mark, and the ban if the color has been retired. The words stay on the
+   swatch — out here they are a reminder at the moment you are holding the
+   roll, and the roll itself is told nothing and stores nothing. */
+const mark = (icon, title, esc) => `<span class="notemark" title="${esc(title)}">${icon}</span>`;
+
+export const rollMarks = (w, esc) =>
+  (hasNote(w) ? mark(noteIcon(w.note.kind, 13), w.note.text, esc) : "")
+  + (w.retired ? mark(retiredIcon(13), w.retiredWhy ? "Retired — " + w.retiredWhy : "Retired", esc) : "");
+
 /* Its own line under the row, because a note is a sentence and the row above it
    is a set of readings. One line only — it is a reminder here, and the whole of
    it is in the sheet. */
@@ -172,7 +216,7 @@ export const rowHTML = (sw, stock, esc) =>
     <span class="sw-meta">${esc(sw.brand)} · ${esc(sw.material)}</span>
     <span class="sw-hex">${esc(sw.hex.toUpperCase())}</span>
     <span class="sw-own${stock ? "" : " none"}">${stock ? stock + (stock === 1 ? " roll" : " rolls") : "none left"}</span>
-    ${printedMark(sw)}${noteLine(sw, esc)}${findButton(sw, stock)}
+    ${printedMark(sw)}${noteLine(sw, esc)}${whyLine(sw, esc)}${findButton(sw, stock)}
   </button>`;
 
 /* The swatch's own sheet. Markup only — every control is wired by swatchForm()
@@ -217,6 +261,12 @@ export const formHTML = (sw, p) => `<h2>${p.existing ? "Swatch" : "Add a swatch"
         >${noteIcon(k.key, 12)}${k.label}</button>`).join("")}</div>
     <input type="text" id="w-note" value="${p.esc(sw.note ? sw.note.text : "")}"
       placeholder="50 mm/s or it strings badly">
+  </div>
+  <div class="field"><label>Retired</label>
+    <label class="never" style="display:inline-flex"><input type="checkbox" id="w-retired"${
+      sw.retired ? " checked" : ""}> wouldn't buy this again</label>
+    <input type="text" id="w-why" style="margin-top:7px" value="${p.esc(sw.retiredWhy || "")}"
+      placeholder="Why not — colour was off, stringed badly…">
   </div>
   ${p.existing ? `<p class="empty-note" style="margin:0 0 4px">${p.n ? `${p.n} ${p.n === 1 ? "roll" : "rolls"} in stock right now.` : "Nothing in stock in this color."}</p>` : ""}
   <div class="sheet-foot">

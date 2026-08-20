@@ -42,3 +42,36 @@ describe("a swatch note", () => {
     close();
   });
 });
+
+describe("a roll of a color that carries a note", () => {
+  it("shows its swatch's mark wherever it is sitting, and drops it when the note goes", async () => {
+    const { run, close } = await openApp();
+    setBench(run, {
+      swatches: [{ id: "sw", brand: "Polyterra", material: "PLA", colorName: "Lava Red", hex: "#C9293C",
+                   note: { kind: "spec", text: "50 mm/s or it strings badly" } }],
+      spools: [{ id: "r1", swatchId: "sw", low: false, sealed: false, ordered: false,
+                 driedAt: "2026-08-01", since: "2026-08-01", used: 0 }],
+      units: [{ id: "ams", kind: "ams", name: "AMS A", slots: ["r1", null, null, null] }],
+    });
+    run("render()");
+
+    const marks = () => run(`[...document.querySelectorAll("#bench-sections .notemark")].map(el => el.title)`);
+
+    /* Collapsed, which is how a unit sits by default — a row of chips and no
+       room for words. This is the case that matters: the AMS at a glance, just
+       before you send a print to it. */
+    expect(marks()).toEqual(["50 mm/s or it strings badly"]);
+
+    /* And opened, where the roll is drawn as a card instead. Same mark, from
+       the same note — nothing about it is copied onto the spool. */
+    run(`unit("ams").open = true; render()`);
+    expect(marks()).toEqual(["50 mm/s or it strings badly"]);
+
+    /* Cleared on the swatch, gone from the bench: the roll never held the note,
+       it only ever showed the one its color carries. */
+    run(`state.swatches[0].note = null; render()`);
+    expect(marks()).toEqual([]);
+
+    close();
+  });
+});
