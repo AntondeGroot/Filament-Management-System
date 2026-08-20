@@ -14,7 +14,8 @@ const CACHE = "filament-manager-v1";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png",
   /* Modules index.html imports. Missing one means the app opens offline and
      then fails the moment that part of it is reached. */
-  "./src/mesh.js", "./src/drying.js", "./src/polymaker.js", "./src/batch.js", "./src/color.js", "./src/alarms.js", "./src/intake.js"];
+  "./src/mesh.js", "./src/drying.js", "./src/polymaker.js", "./src/batch.js", "./src/color.js", "./src/alarms.js", "./src/intake.js",
+  "./src/desiccant.js", "./src/reminders.js", "./src/setup.js"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -106,13 +107,35 @@ async function checkDrying() {
   );
 }
 
+/* The desiccant is the same deal one step simpler: the page leaves the date of
+   the next check at state.desiccantDue, and all this does is notice the day has
+   come. Its own stamp, so a morning that owes both nudges sends both. */
+async function checkDesiccant() {
+  const state = await readState();
+  if (!state || !state.desiccant || !state.desiccant.on || !state.desiccantDue) return;
+
+  const stamp = todayISO();
+  if (state.desiccant.notifiedOn === stamp || state.desiccantDue > stamp) return;
+
+  state.desiccant.notifiedOn = stamp;
+  await writeState(state);
+
+  await self.registration.showNotification("Check the desiccant", {
+    body: "Swap or dry the beads in your AMS.",
+    icon: "./icon-192.png",
+    badge: "./icon-192.png",
+    tag: "filament-desiccant",
+    data: { url: "./index.html" },
+  });
+}
+
 self.addEventListener("periodicsync", e => {
-  if (e.tag === "dry-check") e.waitUntil(checkDrying());
+  if (e.tag === "dry-check") e.waitUntil(Promise.all([checkDrying(), checkDesiccant()]));
 });
 
 /* Manual trigger, so the page can ask for a check without waiting on Chrome. */
 self.addEventListener("message", e => {
-  if (e.data === "dry-check") e.waitUntil(checkDrying());
+  if (e.data === "dry-check") e.waitUntil(Promise.all([checkDrying(), checkDesiccant()]));
 });
 
 self.addEventListener("notificationclick", e => {
