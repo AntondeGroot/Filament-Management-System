@@ -66,7 +66,20 @@ export const intervalsHTML = (state, esc) => Object.keys(KIND_LABEL).map(k => {
            track ? "" : " disabled"}> never</label>`}
     <span class="held">${n ? n + (n === 1 ? " unit" : " units") : "none yet"}</span>
   </div>`;
-}).join("");
+}).join("") + retiredRow(state, esc);
+
+/* Rolls of a color you have retired are the ones you reach for to test a
+   bridge or a first layer, and nobody dries a spool for that. Switched off,
+   they drop out of the countdown wherever they are sitting. */
+const retiredRow = (state, esc) => {
+  const n = state.swatches.filter(w => w.retired).length;
+  return `<div class="srow">
+    <span class="kname">${esc("Retired")}</span>
+    <span class="mini" style="margin-left:0">colors you won't buy again</span>
+    <label class="never"><input type="checkbox" data-dryret${state.dryRetired === false ? " checked" : ""}> no countdown</label>
+    <span class="held">${n ? n + (n === 1 ? " color" : " colors") : "none yet"}</span>
+  </div>`;
+};
 
 export const metaText = (state, piled) =>
   state.units.length + " units · " + state.units.reduce((n, u) => n + (piled(u) ? 0 : u.slots.length), 0) + " slots";

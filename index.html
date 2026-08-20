@@ -532,6 +532,7 @@ body.dragging{cursor:grabbing;user-select:none}
       spools from them. They land in the spools tab under 'unassigned'. The swatches double as a record of what you used to have.</p>
     <div class="chips" id="swatch-filter"></div>
     <div class="swatches" id="swatch-list"></div>
+    <div id="swatch-retired"></div>
   </div>
 </div>
 
@@ -613,7 +614,8 @@ body.dragging{cursor:grabbing;user-select:none}
   import * as Setup from "./src/setup.js";
   import * as Wheel from "./src/wheel.js";
   import * as Swatches from "./src/swatches.js";
-  Object.assign(window, { Mesh, Drying, Polymaker, Batch, Color, Alarms, Intake, Desiccant, Reminders, Setup, Wheel, Swatches });
+  import * as Spools from "./src/spools.js";
+  Object.assign(window, { Mesh, Drying, Polymaker, Batch, Color, Alarms, Intake, Desiccant, Reminders, Setup, Wheel, Swatches, Spools });
   window.bridged();
 </script>
 
@@ -668,6 +670,9 @@ function emptyBench() {
     dryTracking: true,
     notify: false,
     notifiedOn: null,
+    /* Retired filament still dries out; whether you care is another matter, and
+       for the roll you keep for test prints the honest answer is usually no. */
+    dryRetired: true,
     /* The desiccant in an AMS is on a calendar rather than a countdown: nothing
        measures the beads, so the only honest schedule is the one you choose.
        A fortnight, on a Saturday, is a weekend job you will actually do. */
@@ -776,6 +781,7 @@ function migrate() {
     { const s = id && spool(id); if (s && !("dryPending" in s)) s.dryPending = true; }));
   if (!("notify" in state)) { state.notify = false; state.notifiedOn = null; }
   if (!state.desiccant) state.desiccant = emptyBench().desiccant;
+  if (!("dryRetired" in state)) state.dryRetired = true;
   /* Dryers arrived after the first release, so a bench saved before then gets one
      inserted. An empty bench is not an old bench — it has nothing to migrate, and
      adding a dryer to it would hand back a unit that was just deleted. */
@@ -874,7 +880,7 @@ function dueList() {
   if (!dryingOn()) return [];
   const out = [];
   state.spools.forEach(s => {
-    if (s.sealed || inReorder(s.id)) return;
+    if (untracked(s) || inReorder(s.id)) return;
     const d = dryState(s);
     if (!d.weeks || d.drying || !s.driedAt) return;
     const left = Drying.daysLeft(d.used, d.window);
@@ -1018,7 +1024,12 @@ function resetDrying(s) { s.driedAt = today(); s.since = today(); s.used = 0; s.
    it finished. Cleared only by answering, so a roll dried this morning and put
    back in this afternoon is asked about again on the way out. */
 const startCycle = (u, s) => { if (u && u.kind === "dryer" && s) s.dryPending = true; };
-const needsDrying = () => state.spools.filter(s => !inReorder(s.id) && !s.sealed && dryState(s).stale);
+/* Sealed means unopened and therefore still dry; a retired color can be left
+   out of the countdown entirely, from Setup, because the rolls you keep for
+   test prints are not worth drying. Both answer the same question, so both
+   live behind one name. */
+const untracked = s => s.sealed || (state.dryRetired === false && !!(swatch(s.swatchId) || {}).retired);
+const needsDrying = () => state.spools.filter(s => !inReorder(s.id) && !untracked(s) && dryState(s).stale);
 function toast(msg) {
   const t = document.getElementById("toast");
   t.textContent = msg; t.classList.add("on");
@@ -1054,7 +1065,7 @@ function spoolHTML(s, n = 1) {
   const w = info(s);
   const d = dryState(s);
   let dry = "", says = "";
-  if (empty || s.sealed || !dryingOn()) { /* nothing to dry */ }
+  if (empty || untracked(s) || !dryingOn()) { /* nothing to dry */ }
   else if (d.drying) { dry = `<span class="tag damp">Drying</span>`; says = ", in the dryer"; }
   else if (d.stale) { dry = `<span class="tag damp">Dry me</span>` + droplet(4, dropTitle(s, d), "warn"); says = `, dried ${dur(d.days)} ago`; }
   else if (!d.weeks) { /* this place never goes damp */ }
@@ -1068,7 +1079,7 @@ function spoolHTML(s, n = 1) {
     </div>
     <div class="brand">${esc(w.brand)}</div>
     <div class="color">${esc(w.colorName)}</div>
-    <div class="bot"><span class="chip">${esc(w.material)}</span>${tag}${dry}${noteMark(w)}</div>
+    <div class="bot"><span class="chip">${esc(w.material)}</span>${tag}${dry}${Swatches.rollMarks(w, esc)}</div>
   </div>`;
 }
 
@@ -1100,9 +1111,9 @@ function spoolChip(s, n = 1) {
       aria-label="${esc(w.brand)} ${esc(w.material)} ${esc(w.colorName)}">
     <span class="disc" style="--c:${esc(w.hex)};--bore:${Color.bore(w.hex)};--fill:${fill(s)}">
       <span class="flange"></span><span class="wind"></span><span class="hub"></span>
-    </span>${esc(w.material)}${noteMark(w)}${n > 1 ? `<span class="xn">×${n}</span>` : ""}${s.sealed ? `<span class="sealed-dot"></span>` : ""}${(() => {
+    </span>${esc(w.material)}${Swatches.rollMarks(w, esc)}${n > 1 ? `<span class="xn">×${n}</span>` : ""}${s.sealed ? `<span class="sealed-dot"></span>` : ""}${(() => {
       const d = dryState(s);
-      return dryingOn() && !s.sealed && d.level >= 3 ? droplet(d.level, dropTitle(s, d), "warn") : "";
+      return dryingOn() && !untracked(s) && d.level >= 3 ? droplet(d.level, dropTitle(s, d), "warn") : "";
     })()}
   </div>`;
 }
@@ -1148,12 +1159,6 @@ function unitHTML(u) {
 }
 
 /* Identical rolls in a loose zone read as one pile with a count. */
-/* A roll carries its color's note wherever it is. The words stay in the swatch
-   — this is the reminder you want while looking at the roll in the AMS, at the
-   moment it matters, and it is the same mark you set on the swatch. */
-const noteMark = w => (Swatches.hasNote(w)
-  ? `<span class="notemark" title="${esc(w.note.text)}">${Swatches.noteIcon(w.note.kind, 13)}</span>` : "");
-
 const sameAs = (s, ids) => ids.filter(x => spool(x).swatchId === s.swatchId).length;
 
 function render() {
@@ -1622,40 +1627,7 @@ function spoolForm(existing, swatchId) {
   const wid = existing ? existing.swatchId : swatchId;
   const w = swatch(wid) || GONE;
   const s = existing || { low: false, sealed: true, ordered: false, driedAt: today() };
-  modal(`
-    <h2>${existing ? "Edit roll" : "Add a roll"}</h2>
-    <div style="display:flex;gap:11px;align-items:center;margin:-4px 0 14px">
-      <div class="disc" style="--c:${esc(w.hex)};--bore:${Color.bore(w.hex)};--fill:1;width:46px;height:46px">
-        <div class="flange"></div><div class="wind"></div><div class="hub"></div>
-      </div>
-      <div style="min-width:0">
-        <div style="font-family:var(--display);text-transform:uppercase;letter-spacing:.05em;font-weight:600;font-size:16px">${esc(w.colorName)}</div>
-        <div style="font-size:12px;color:var(--ink-soft)">${esc(w.brand)} · ${esc(w.material)}
-          <button class="btn ghost tiny" id="f-swap" style="margin-left:6px">Change color</button></div>
-      </div>
-    </div>
-    <div class="two">
-      <div class="field"><label>State</label>
-        <select id="f-state">
-          <option value="fine"${!s.low && !s.sealed ? " selected" : ""}>Open, fine</option>
-          <option value="low"${s.low && !s.sealed ? " selected" : ""}>Running low</option>
-          <option value="sealed"${s.sealed ? " selected" : ""}>Sealed, unopened</option>
-        </select>
-      </div>
-      ${existing ? "" : `<div class="field"><label>How many</label>
-        <input type="number" id="f-qty" min="1" max="24" value="1"></div>`}
-    </div>
-    ${dryingOn() ? `<div class="field" id="f-dried-wrap" style="display:${s.sealed ? "none" : "block"}">
-      <label>Last dried</label>
-      <input type="date" id="f-dried" value="${esc(s.driedAt || "")}">
-      <div style="font-size:11px;color:var(--ink-soft);margin-top:3px">
-        Leave blank if you don't know.</div>
-    </div>` : ""}
-    <div class="sheet-foot">
-      <span class="spacer"></span>
-      <button class="btn ghost" data-close>Cancel</button>
-      <button class="btn primary" id="f-save">${existing ? "Save" : "Add to unassigned"}</button>
-    </div>`, scrim => {
+  modal(Spools.formHTML(s, { existing, esc, w, drying: dryingOn(), bore: Color.bore(w.hex) }), scrim => {
     scrim.querySelector("#f-swap").onclick = () => { close(); swatchPicker(pick => spoolForm(existing, pick)); };
     scrim.querySelector("#f-state").onchange = e => {
       const wrap = scrim.querySelector("#f-dried-wrap");
@@ -2295,6 +2267,7 @@ document.addEventListener("change", e => {
     save(); render();
     return;
   }
+  if (e.target.matches("[data-dryret]")) { state.dryRetired = !e.target.checked; save(); render(); return; }
   const dry = e.target.closest("[data-kdry]");
   if (dry) {
     state.dryWeeks[dry.dataset.kdry] = Math.max(0, Math.min(520, +dry.value || 0)) || null;
@@ -2361,26 +2334,24 @@ const fillOf = m => ((m || "").toUpperCase().split("-")[1] || "").trim();
 const swMatch = (w, fam, fil) =>
   (fam === "all" || family(w.material) === fam) &&
   (fil === "all" || fillOf(w.material) === fil);
-let swFilter = "all", swFill = "all";
+let swFilter = "all", swFill = "all", swRetiredOpen = false;
 
 function renderSwatches() {
   const all = sortedSwatches();
-  const fams = [...new Set(all.map(w => family(w.material)))].sort();
-  const fills = [...new Set(all.map(w => fillOf(w.material)).filter(Boolean))].sort();
+  const fams = [...new Set(all.filter(w => !w.retired).map(w => family(w.material)))].sort();
+  const fills = [...new Set(all.filter(w => !w.retired).map(w => fillOf(w.material)).filter(Boolean))].sort();
   if (swFilter !== "all" && !fams.includes(swFilter)) swFilter = "all";
   if (swFill !== "all" && !fills.includes(swFill)) swFill = "all";
 
+  const kept = all.filter(w => !w.retired);
   document.getElementById("swatch-filter").innerHTML = Swatches.chipsHTML({ fams, fills, fam: swFilter, fill: swFill,
-    esc, count: (f, x) => all.filter(w => swMatch(w, f, x)).length });
-  const list = all.filter(w => swMatch(w, swFilter, swFill));
-  document.getElementById("swatch-list").innerHTML = list.length
-    ? list.map(sw => Swatches.rowHTML(sw, swatchStock(sw), esc)).join("")
-    : `<p class="empty-note" style="padding:14px">${swFilter === "all"
-      ? "No colors yet. They appear as you add spools, or add one by hand."
-      : "Nothing here in " + esc([swFilter, swFill].filter(x => x !== "all").join(" ")) + " yet."}</p>`;
-  const owned = list.filter(sw => swatchStock(sw)).length;
-  document.getElementById("swatch-meta").textContent =
-    list.length ? `${list.length} colors · ${owned} in stock` : "";
+    esc, count: (f, x) => kept.filter(w => swMatch(w, f, x)).length });
+  const list = kept.filter(w => swMatch(w, swFilter, swFill));
+  document.getElementById("swatch-list").innerHTML = Swatches.listHTML(list, swatchStock, esc,
+    [swFilter, swFill].filter(x => x !== "all").join(" "));
+  document.getElementById("swatch-meta").textContent = Swatches.metaText(list, swatchStock);
+  document.getElementById("swatch-retired").innerHTML =
+    Swatches.retiredHTML(all.filter(w => w.retired), swRetiredOpen, swatchStock, esc);
 }
 
 /* ================= reading a color off the camera =================
@@ -2882,6 +2853,8 @@ function swatchForm(existing) {
       transparent: scrim.querySelector("#w-clear").checked,
       printed: scrim.querySelector("#w-print").checked,
       note: Swatches.noteFrom(nkind, scrim.querySelector("#w-note").value.trim()),
+      retired: scrim.querySelector("#w-retired").checked,
+      retiredWhy: scrim.querySelector("#w-why").value.trim(),
     });
     scrim.querySelector("#w-save").onclick = () => {
       const data = read();
@@ -3046,6 +3019,7 @@ document.addEventListener("click", e => {
     if (u) { u.open = u.open === false; save(); render(); }
     return;
   }
+  if (e.target.closest("[data-swretired]")) { swRetiredOpen = !swRetiredOpen; renderSwatches(); return; }
   const ff = e.target.closest("[data-swfilter]");
   if (ff) { swFilter = ff.dataset.swfilter; renderSwatches(); return; }
   const fx = e.target.closest("[data-swfill]");
