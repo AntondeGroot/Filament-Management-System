@@ -358,8 +358,10 @@ body.dragging{cursor:grabbing;user-select:none}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
 .swatches{border:1px solid var(--rule);border-radius:4px;overflow:hidden}
-.swatch{display:flex;align-items:center;gap:12px;width:100%;padding:15px 14px;border:0;text-align:left;
-        box-shadow:inset 0 -1px 0 rgba(0,0,0,.14);cursor:pointer}
+/* The right-hand 50px is reserved on every row, occupied or not: it is the
+   magnifier's, and it keeps the counts on one edge whether or not a color has
+   anything left to find. */
+.swatch{display:flex;align-items:center;gap:12px;width:100%;padding:15px 50px 15px 10px;border:0;text-align:left;position:relative;box-shadow:inset 0 -1px 0 rgba(0,0,0,.14);cursor:pointer}
 .swatch:hover{filter:brightness(1.06)}
 /* A translucent filament is the color with light getting through it, drawn as
    a sheen falling across gloss rather than as a chequer — a chequer is a
@@ -385,8 +387,26 @@ body.dragging{cursor:grabbing;user-select:none}
 /* Keeps its room whether or not there is a mark in it, so the counts above and
    below it stay on one edge. */
 .sw-print{display:flex;align-items:center;justify-content:center;width:28px;height:28px;margin:-4px -2px -4px 0}
+/* Where the rolls of one color are. Its own row rather than the Setup screen's,
+   which stacks its label onto a second line on a phone. */
+/* The circle is what you aim at; the whole right end of the row is what you
+   hit. Drawn small and set apart so it reads as a control rather than as one
+   more thing printed on the label, but its target runs the full height of the
+   row and out to the edge — a ring you can miss by two millimetres is a swatch
+   form opening instead.
+
+   Nothing divides it off. A tinted rule reads as a smudge in a saturated color
+   and a white one cuts the row in two, and this screen exists to show colors
+   whole: the ring's own outline is enough to say where the button is. */
+.sw-find{position:absolute;top:0;right:0;bottom:0;width:50px;display:flex;align-items:center;justify-content:center}
+/* Sized whole rather than by its padding: everything here is border-box, so a
+   16px svg with 6px of padding has two pixels of glass left in the middle. */
+.sw-find svg{width:30px;height:30px;padding:6px;border:1px solid currentColor;border-radius:50%;opacity:.75}
+.wrow{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-top:1px solid var(--rule)}
+.wrow .wp{font-family:var(--display);text-transform:uppercase;letter-spacing:.07em;font-weight:600;font-size:13px}
+.wrow .wt{font-family:var(--mono);font-size:11px;color:var(--ink-soft);margin-left:auto}
 @media (max-width:700px){
-  .swatch{flex-wrap:wrap;gap:4px 10px;padding:13px 12px}
+  .swatch{flex-wrap:wrap;gap:4px 10px;padding:13px 50px 13px 10px}
   .sw-name{flex:1 1 100%}
   .sw-meta{flex:1 1 auto;font-size:11px}
   .sw-hex{opacity:.9}
@@ -2313,6 +2333,12 @@ document.addEventListener("click", e => {
 const swatchPaint = sw => Swatches.paint(sw, esc);
 const sortedSwatches = () => Color.sortSwatches(state.swatches);
 const swatchStock = sw => state.spools.filter(s => s.swatchId === sw.id && !inReorder(s.id)).length;
+/* Where every roll of a color is, cut down to what the ordering cares about.
+   Only the page can answer this: whereabouts is a fact about the bench, not
+   about the color, and the reorder queue is not a place. */
+const placeOf = s => { const at = locationOf(s.id), u = at && at.unitId ? unit(at.unitId) : null;
+  return { place: u ? u.name : "Unassigned", machine: !!u && isMachine(u), low: !!s.low, sealed: !!s.sealed }; };
+const rollsOf = sw => state.spools.filter(s => s.swatchId === sw.id && !inReorder(s.id)).map(placeOf);
 
 /* Two independent axes. PLA and PLA+ are the same shelf and PETG is not — but
    carbon fill cuts across all of them, so it gets its own filter rather than
@@ -2331,19 +2357,8 @@ function renderSwatches() {
   if (swFilter !== "all" && !fams.includes(swFilter)) swFilter = "all";
   if (swFill !== "all" && !fills.includes(swFill)) swFill = "all";
 
-  /* Counts are contextual, so PETG can't promise three when CF is on and there's one. */
-  const chip = (key, label, n, attr, on) =>
-    `<button class="btn tiny${on ? " on" : ""}" ${attr}="${esc(key)}"${n ? "" : " disabled"}>${esc(label)}<span class="n">${n}</span></button>`;
-  const famChips = fams.length > 1
-    ? [chip("all", "All", all.filter(w => swMatch(w, "all", swFill)).length, "data-swfilter", swFilter === "all"),
-       ...fams.map(f => chip(f, f, all.filter(w => swMatch(w, f, swFill)).length, "data-swfilter", swFilter === f))].join("")
-    : "";
-  const fillChips = fills.length
-    ? `<span class="sep"></span>` +
-      [chip("all", "Any fill", all.filter(w => swMatch(w, swFilter, "all")).length, "data-swfill", swFill === "all"),
-       ...fills.map(x => chip(x, x, all.filter(w => swMatch(w, swFilter, x)).length, "data-swfill", swFill === x))].join("")
-    : "";
-  document.getElementById("swatch-filter").innerHTML = famChips + fillChips;
+  document.getElementById("swatch-filter").innerHTML = Swatches.chipsHTML({ fams, fills, fam: swFilter, fill: swFill,
+    esc, count: (f, x) => all.filter(w => swMatch(w, f, x)).length });
   const list = all.filter(w => swMatch(w, swFilter, swFill));
   document.getElementById("swatch-list").innerHTML = list.length
     ? list.map(sw => Swatches.rowHTML(sw, swatchStock(sw), esc)).join("")
@@ -3053,6 +3068,9 @@ document.addEventListener("click", e => {
   if (ff) { swFilter = ff.dataset.swfilter; renderSwatches(); return; }
   const fx = e.target.closest("[data-swfill]");
   if (fx) { swFill = fx.dataset.swfill; renderSwatches(); return; }
+  /* Read before the row it sits in, or the swatch form opens over the top. */
+  const fd = e.target.closest("[data-swfind]");
+  if (fd) { const w = swatch(fd.dataset.swfind); modal(Swatches.whereSheetHTML(w, rollsOf(w), esc)); return; }
   const sw = e.target.closest("[data-swatch]");
   if (sw) { swatchForm(state.swatches.find(x => x.id === sw.dataset.swatch)); return; }
   const t = e.target.closest("[data-toggle]");
