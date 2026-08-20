@@ -16,7 +16,7 @@ const LIMIT = 200;
  * nothing is allowed to raise it.
  *
  * TODO: delete this entry — and this comment — once the split is done. */
-const SPLIT_PENDING = { "index.html": 2555 };
+const SPLIT_PENDING = { "index.html": 2524 };
 
 /* Everything generated, vendored, or not ours. */
 const SKIP_DIRS = new Set(["node_modules", "dist", "android", "assets", ".git", ".idea", "coverage", "www"]);

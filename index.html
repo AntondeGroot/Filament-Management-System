@@ -110,6 +110,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .umove{display:flex;align-items:center;gap:4px;flex:none;margin-left:2px;padding:4px 7px;height:30px;
        background:none;border:1px solid var(--rule);border-radius:3px;color:var(--ink-soft);cursor:pointer}
 .umove .n{font-family:var(--mono);font-size:12px;font-weight:600;line-height:1}
+.spool.mini .xn{font-family:var(--mono);font-weight:600;opacity:.7;margin-left:1px}
 .umove:hover{border-color:var(--ink);color:var(--ink)}
 .umove.armed{background:var(--ink);color:var(--panel);border-color:var(--ink)}
 /* Shown only while a move is armed, so a row is not permanently outlined. The
@@ -595,7 +596,6 @@ const LOOSE_DRY = 4;    /* the spare shelf and reorder queue aren't units */
 const dryingOn = () => state.dryTracking !== false && Object.values(state.dryWeeks).some(Boolean);
 /* Days read better up close, weeks read better after a fortnight. */
 const dur = d => d < 14 ? d + " days" : Math.round(d / 7) + " weeks";
-const durShort = d => d < 14 ? d + "d" : Math.round(d / 7) + "w";
 /* Local, not UTC. Every date in the app is a local day: driedAt is parsed as
    "…T00:00:00" with no zone, and <input type="date"> hands back the day on the
    wall. toISOString() would re-read those as UTC and report the day before for
@@ -771,6 +771,7 @@ function migrate() {
       delete p.filaments; delete p.spoolIds;
     }
   });
+  state.units.forEach(u => { if (piled(u)) u.slots = u.slots.filter(Boolean); });
   delete state.prints;
   /* Intervals used to live on each unit; lift them to the type they belong to. */
   if (!state.dryWeeks || typeof state.dryWeeks !== "object") state.dryWeeks = { ...DEFAULT_DRY };
@@ -876,7 +877,7 @@ function detach(id) {
   bankDrying(id);
   for (const u of state.units) {
     const i = u.slots.indexOf(id);
-    if (i > -1) u.slots[i] = null;
+    if (i > -1) { if (piled(u)) u.slots.splice(i, 1); else u.slots[i] = null; }
   }
   state.reorder = state.reorder.filter(x => x !== id);
   state.spares = state.spares.filter(x => x !== id);
@@ -908,7 +909,8 @@ function place(id, target) {
     if (displaced) {
       /* Always a straight swap: the roll that was there goes exactly where the
          dragged one came from, whether that's another slot or a loose zone. */
-      if (from && from.unitId) unit(from.unitId).slots[from.slot] = displaced;
+      const back = from && from.unitId ? unit(from.unitId) : null;
+      if (back) back.slots[piled(back) ? back.slots.length : from.slot] = displaced;
       else if (from && from.zone === "reorder") state.reorder.push(displaced);
       else state.spares.push(displaced);
     }
@@ -929,17 +931,6 @@ function place(id, target) {
   }
   mark(id); save(); render();
   askIfDried(cameFrom, target, [spool(id)]);
-}
-function firstFreeSlot() {
-  /* Storage first — a new roll goes on the shelf, not onto the printer. */
-  const isStore = u => u.kind === "box" || u.kind === "shelf";
-  const order = [...state.units].sort((a, b) => (isStore(a) ? 0 : 1) - (isStore(b) ? 0 : 1));
-  for (const u of order) {
-    if (u.kind === "dryer") continue;
-    const i = u.slots.indexOf(null);
-    if (i > -1) return { unitId: u.id, slot: i };
-  }
-  return { zone: "reorder" };
 }
 /* How wet is it? Unknown dates stay unknown — no nagging without evidence. */
 function dryState(s) {
@@ -980,15 +971,6 @@ function resetDrying(s) { s.driedAt = today(); s.since = today(); s.used = 0; s.
    back in this afternoon is asked about again on the way out. */
 const startCycle = (u, s) => { if (u && u.kind === "dryer" && s) s.dryPending = true; };
 const needsDrying = () => state.spools.filter(s => !inReorder(s.id) && !s.sealed && dryState(s).stale);
-/* Spools in load order: printer first, then dryer, boxes, shelf. */
-function allSpoolsRanked() {
-  const rank = { printer: 0, ams: 1, dryer: 2, box: 3, shelf: 4 };
-  const out = [];
-  [...state.units].sort((a, b) => rank[a.kind] - rank[b.kind])
-    .forEach(u => u.slots.forEach(id => { if (id) out.push(spool(id)); }));
-  state.spares.forEach(id => out.push(spool(id)));
-  return out;
-}
 function toast(msg) {
   const t = document.getElementById("toast");
   t.textContent = msg; t.classList.add("on");
@@ -1004,6 +986,17 @@ const SECTIONS = [
   { kind: "shelf",   label: "Open shelves",   grid: "grid-box" },
 ];
 const isMachine = u => u.kind === "ams" || u.kind === "printer";
+
+/* A shelf is a heap, not a rack. Rolls pile onto it, identical ones stack into
+ * one card the way they do in Unassigned, and there is no such thing as a free
+ * slot or a full shelf — which is the honest model: nobody counts shelf
+ * positions, they put the roll down and take one off the top.
+ *
+ * Its slots array is therefore a plain list of what is on it, no holes and no
+ * length to run out of. Everywhere the bench asks "which slot is free", a
+ * shelf answers "the end". */
+const piled = u => u.kind === "shelf";
+const freeSlot = u => (piled(u) ? u.slots.length : u.slots.indexOf(null));
 
 function spoolHTML(s, n = 1) {
   const empty = inReorder(s.id);
@@ -1052,14 +1045,14 @@ const dropTitle = (s, d) => d.level === 4
   ? `Past its ${d.weeks}-week window — dried ${dur(d.days)} ago`
   : `${["Dry", "A quarter through", "Halfway through", "Three quarters through"][d.level]} · dried ${esc(fmtDate(s.driedAt))}, good for about ${dur(d.window - d.days)} more`;
 
-function spoolChip(s) {
+function spoolChip(s, n = 1) {
   const w = info(s);
   return `<div class="spool mini${flash.has(s.id) ? " flash" : ""}" data-id="${s.id}" tabindex="0" role="button"
       title="${esc(w.brand)} ${esc(w.colorName)}${s.sealed ? " · sealed" : s.low ? " · running low" : ""}"
       aria-label="${esc(w.brand)} ${esc(w.material)} ${esc(w.colorName)}">
     <span class="disc" style="--c:${esc(w.hex)};--bore:${Color.bore(w.hex)};--fill:${fill(s)}">
       <span class="flange"></span><span class="wind"></span><span class="hub"></span>
-    </span>${esc(w.material)}${s.sealed ? `<span class="sealed-dot"></span>` : ""}${(() => {
+    </span>${esc(w.material)}${n > 1 ? `<span class="xn">×${n}</span>` : ""}${s.sealed ? `<span class="sealed-dot"></span>` : ""}${(() => {
       const d = dryState(s);
       return dryingOn() && !s.sealed && d.level >= 3 ? droplet(d.level, dropTitle(s, d), "warn") : "";
     })()}
@@ -1073,38 +1066,34 @@ function unitHTML(u) {
      scrolling before you reach the loose rolls. */
   const open = u.open === true;
   const foot = u.kind !== "dryer" || !open ? "" : `<div class="vent"><span class="slits"></span></div>`;
+  /* A shelf is drawn as what is on it, piles and all. A rack is drawn as its
+     slots, empty ones included — the empty slot is the invitation. */
+  const heap = () => used
+    ? Batch.stacks(u.slots, spool).map(g => spoolHTML(spool(g.ids[0]), g.ids.length)).join("")
+    : `<span class="free-label">Empty — drag a roll onto it.</span>`;
+  const rack = () => u.slots.map((id, i) => {
+    const inner = id ? spoolHTML(spool(id)) : `<span class="free-label">Empty</span>`;
+    return `<div class="slot ${id ? "taken" : "free"}" data-drop="slot" data-unit="${u.id}" data-slot="${i}">
+              <span class="idx">${i + 1}</span>${inner}</div>`;
+  }).join("");
   const body = open
-    ? `<div class="slots">${u.slots.map((id, i) => {
-        const inner = id ? spoolHTML(spool(id)) : `<span class="free-label">Empty</span>`;
-        return `<div class="slot ${id ? "taken" : "free"}" data-drop="slot" data-unit="${u.id}" data-slot="${i}">
-                  <span class="idx">${i + 1}</span>${inner}</div>`;
-      }).join("")}</div>`
+    ? `<div class="slots">${piled(u) ? heap() : rack()}</div>`
     : used
-      ? `<div class="mini-row">${u.slots.filter(Boolean).map(id => spoolChip(spool(id))).join("")}</div>`
+      ? `<div class="mini-row">${piled(u)
+          ? Batch.stacks(u.slots, spool).map(g => spoolChip(spool(g.ids[0]), g.ids.length)).join("")
+          : u.slots.filter(Boolean).map(id => spoolChip(spool(id))).join("")}</div>`
       : `<div class="mini-empty">Empty</div>`;
   return `<div class="unit ${u.kind}${isMachine(u) ? " machine" : ""}${open ? "" : " collapsed"}"
-       data-unit="${u.id}"${open ? "" : ` data-drop="unit"`}>
+       data-unit="${u.id}"${open && !piled(u) ? "" : ` data-drop="unit"`}>
     <div class="unit-head" data-ucollapse="${u.id}"${used ? ` data-grip="${u.id}"` : ""} role="button" aria-expanded="${open}"
          aria-label="${esc(u.name)}, ${open ? "collapse" : "expand"}">
       <span class="ucaret">${open ? "▾" : "▸"}</span>
       ${isMachine(u) ? `<span class="led"></span>` : ""}
       ${u.kind === "dryer" ? `<span class="led heat"></span>` : ""}
       <span class="unit-name">${esc(u.name)}</span>
-      <span class="count">${used}/${u.slots.length}</span>
+      <span class="count">${piled(u) ? used : used + "/" + u.slots.length}</span>
       ${u.kind === "dryer" && dryingOn() ? `<button class="btn ghost tiny" data-cycle="${u.id}">Mark as dried</button>` : ""}
-      ${used ? (() => { const take = Math.min(used, Batch.BATCH_SIZE); return `<button
-        class="umove${armed({ unitId: u.id }) ? " armed" : ""}" data-umove="${u.id}"
-        title="${esc(Batch.batchLabel(take))} — tap to show which, then drag them or tap again for a list"
-        aria-label="${esc(Batch.batchLabel(take))}">
-        <svg viewBox="0 0 12 12" width="13" height="13" aria-hidden="true">
-          <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" stroke-width="1.3"/>
-          <circle cx="6" cy="6" r="1.6" fill="currentColor"/>
-        </svg><span class="n">${take}</span>
-        <svg viewBox="0 0 8 14" width="8" height="14" aria-hidden="true">
-          <path d="M4 1.2v11.6M4 1.2 1.7 3.8M4 1.2l2.3 2.6M4 12.8l-2.3-2.6M4 12.8l2.3-2.6"
-                fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>`; })() : ""}
+      ${used ? moveControl("data-umove", u.id, used, armed({ unitId: u.id })) : ""}
     </div>
     ${body}${foot}
   </div>`;
@@ -1114,7 +1103,7 @@ function unitHTML(u) {
 const sameAs = (s, ids) => ids.filter(x => spool(x).swatchId === s.swatchId).length;
 
 function render() {
-  const freeSlots = state.units.reduce((n, u) => u.kind === "dryer" ? n : n + u.slots.filter(x => !x).length, 0);
+  const freeSlots = state.units.reduce((n, u) => (u.kind === "dryer" || piled(u) ? n : n + u.slots.filter(x => !x).length), 0);
   document.getElementById("s-count").textContent = state.spools.length;
   document.getElementById("s-loaded").textContent = freeSlots;
   document.getElementById("s-order").textContent = state.reorder.length;
@@ -1126,7 +1115,8 @@ function render() {
     if (!us.length) return "";
     const held = us.reduce((n, u) => n + u.slots.filter(Boolean).length, 0);
     const cap = us.reduce((n, u) => n + u.slots.length, 0);
-    let meta = held + " of " + cap + " slots loaded";
+    let meta = piled(us[0]) ? held + (held === 1 ? " roll" : " rolls")
+             : held + " of " + cap + " slots loaded";
     if (sec.kind === "dryer" && dryingOn()) {
       const due = needsDrying().length;
       meta = due ? due + (due === 1 ? " spool past its window" : " spools past their window") : "everything in date";
@@ -1178,7 +1168,7 @@ const sourceKey = source => (source.unitId ? "unit:" + source.unitId : "zone:" +
 function batchIds(source) {
   if (source.unitId) {
     const u = unit(source.unitId);
-    return u ? Batch.batchFrom(u.slots.filter(Boolean)) : [];
+    return !u ? [] : piled(u) ? Batch.looseBatch(u.slots, spool) : Batch.batchFrom(u.slots.filter(Boolean));
   }
   const held = source.zone === "reorder" ? state.reorder : state.spares;
   return Batch.looseBatch(held, spool);
@@ -1207,11 +1197,13 @@ function paintBatch() {
 
 /* The same control the units carry, for the zones that have no header of their
    own to put one in. */
-function zoneMoveHTML(zone) {
-  const held = zone === "reorder" ? state.reorder : state.spares;
-  if (held.length < 2) return "";
-  const take = Math.min(held.length, Batch.BATCH_SIZE);
-  return `<button class="umove zone-move${armed({ zone }) ? " armed" : ""}" data-zonemove="${zone}"
+/* The ⊕ control, drawn the same wherever it appears — a unit header or a loose
+   zone. Tap to show which rolls would go, tap again for a list of destinations.
+   `attr` is what the click handler reads; `armedNow` is whether these are the
+   rolls currently outlined. */
+function moveControl(attr, key, held, armedNow) {
+  const take = Math.min(held, Batch.BATCH_SIZE);
+  return `<button class="umove${attr === "data-zonemove" ? " zone-move" : ""}${armedNow ? " armed" : ""}" ${attr}="${key}"
     title="${esc(Batch.batchLabel(take))} — tap to show which, then drag them or tap again for a list"
     aria-label="${esc(Batch.batchLabel(take))}">
     <svg viewBox="0 0 12 12" width="13" height="13" aria-hidden="true">
@@ -1225,6 +1217,11 @@ function zoneMoveHTML(zone) {
   </button>`;
 }
 
+function zoneMoveHTML(zone) {
+  const held = zone === "reorder" ? state.reorder : state.spares;
+  return held.length < 2 ? "" : moveControl("data-zonemove", zone, held.length, armed({ zone }));
+}
+
 /* ============================ drag & drop ============================ */
 let drag = null;
 function targetFrom(el) {
@@ -1232,7 +1229,7 @@ function targetFrom(el) {
   if (!t) return null;
   if (t.dataset.drop === "unit") {
     const u = unit(t.dataset.unit);
-    const i = u ? u.slots.indexOf(null) : -1;
+    const i = u ? freeSlot(u) : -1;
     return i > -1 ? { el: t, target: { unitId: u.id, slot: i } } : null;   /* full: nothing to drop into */
   }
   if (t.dataset.drop !== "slot") return { el: t, target: { zone: t.dataset.drop } };
@@ -1448,7 +1445,6 @@ function swipeActions(s) {
     left: empty ? { label: "Delete", danger: true, run: () => {
             detach(s.id);
             state.spools = state.spools.filter(x => x.id !== s.id);
-            state.projects.forEach(p => p.spoolIds = p.spoolIds.map(x => x === s.id ? null : x));
             toast(`${info(s).colorName} deleted.`);
           } }
         : { label: "Reorder", run: () => place(s.id, { zone: "reorder" }) },
@@ -1627,24 +1623,20 @@ function spoolForm(existing, swatchId) {
       }
       close(); save(); render();
       toast(`${qty > 1 ? qty + " × " : ""}${w.colorName} added to Unassigned.`);
+      /* Straight to where they landed. On a full bench Unassigned is well below
+         the fold, and a roll you cannot see reads as a roll that never arrived. */
+      const row = tab === "bench" && document.getElementById("spares-row");
+      if (row) row.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth" });
     };
   });
 }
 
 /* One tap from the Spools tab: pick a color, get a sealed roll waiting to be put away. */
-function addSealedRoll(swatchId) {
-  const w = swatch(swatchId) || GONE;
-  const ns = { id: uid("sp-"), swatchId, low: false, sealed: true, ordered: false, driedAt: null };
-  state.spools.push(ns);
-  state.spares.push(ns.id);
-  mark(ns.id);
-  save(); render();
-  toast(`Sealed ${w.colorName} added to Unassigned.`);
-  const row = document.getElementById("spares-row");
-  if (row) row.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth" });
-}
 
 /* --- pick a color from the swatch book --- */
+/* Picks, and only picks. The library belongs to the Swatches tab: a sheet that
+   quietly grows colors wherever it appears is how you end up owning the same
+   filament twice under two names. */
 function swatchPicker(onPick) {
   const list = sortedSwatches();
   modal(`<h2>Which color?</h2>
@@ -1652,15 +1644,12 @@ function swatchPicker(onPick) {
       ${list.map(sw => `<button class="swatch${sw.transparent ? " clear" : ""}" data-pick="${sw.id}" style="${swatchPaint(sw)};padding:11px 12px">
         <span class="sw-name" style="font-size:14px">${esc(sw.colorName)}</span>
         <span class="sw-meta">${esc(sw.brand)} · ${esc(sw.material)}</span>
-      </button>`).join("")}
+      </button>`).join("") || `<p class="empty-note">No colors yet — add one in the Swatches tab, then come back.</p>`}
     </div>
-    <div class="sheet-foot">
-      <button class="btn" id="p-new">New color</button>
-      <span class="spacer"></span>
+    <div class="sheet-foot"><span class="spacer"></span>
       <button class="btn ghost" data-close>Cancel</button>
     </div>`, scrim => {
     scrim.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => { close(); onPick(b.dataset.pick); });
-    scrim.querySelector("#p-new").onclick = () => { close(); swatchForm(null, onPick); };
   });
 }
 
@@ -1669,7 +1658,8 @@ function openSpool(id) {
   const s = spool(id); if (!s) return;
   const here = locationOf(id);
   const opts = state.units.map(u => `<optgroup label="${esc(u.name)}">${
-    u.slots.map((occ, i) => {
+    piled(u) ? (here && here.unitId === u.id ? "" : `<option value="${u.id}|${u.slots.length}">Put it on</option>`)
+    : u.slots.map((occ, i) => {
       if (here && here.unitId === u.id && here.slot === i) return "";
       const who = occ ? spool(occ) : null;
       return `<option value="${u.id}|${i}">Slot ${i + 1} — ${who ? "swap with " + esc(who.colorName) : "free"}</option>`;
@@ -1737,7 +1727,6 @@ function openSpool(id) {
     on("#d-del", () => {
       detach(s.id);
       state.spools = state.spools.filter(x => x.id !== s.id);
-      state.projects.forEach(p => p.spoolIds = p.spoolIds.map(x => x === s.id ? null : x));
       close(); save(); render();
       toast(`${w.colorName} deleted${pile > 1 ? ` · ${pile - 1} left` : ""}.`);
     });
@@ -2189,8 +2178,8 @@ function renderSetup() {
       <select data-ukind="${u.id}" aria-label="Type">
         ${Object.keys(KIND_LABEL).map(k => `<option value="${k}"${k === u.kind ? " selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}
       </select>
-      <input type="number" min="1" max="12" value="${u.slots.length}" data-uslots="${u.id}" aria-label="Slots">
-      <span class="mini">slots</span>
+      ${piled(u) ? "" : `<input type="number" min="1" max="12" value="${u.slots.length}" data-uslots="${u.id}" aria-label="Slots">
+      <span class="mini">slots</span>`}
       <span class="mini" style="margin-left:4px">${u.kind === "dryer" ? "no countdown"
         : state.dryWeeks[u.kind] ? state.dryWeeks[u.kind] + "w dry" : "never dries out"}</span>
       <span class="held">${held ? held + " loaded" : "empty"}</span>
@@ -2252,7 +2241,7 @@ function renderSetup() {
   }).join("");
 
   document.getElementById("setup-meta").textContent =
-    state.units.length + " units · " + state.units.reduce((n, u) => n + u.slots.length, 0) + " slots";
+    state.units.length + " units · " + state.units.reduce((n, u) => n + (piled(u) ? 0 : u.slots.length), 0) + " slots";
 }
 
 function addUnit(kind) {
@@ -2260,7 +2249,7 @@ function addUnit(kind) {
   const name = { printer: "Printer " + n, ams: "AMS " + n, dryer: "Dryer " + n,
                  box: "Box " + n, shelf: "Shelf " + n }[kind];
   state.units.push({ id: uid(kind.slice(0, 2) + "-"), kind, name,
-                     slots: Array(DEFAULT_SLOTS[kind]).fill(null) });
+                     slots: kind === "shelf" ? [] : Array(DEFAULT_SLOTS[kind]).fill(null) });
   save(); render();
   toast(`${name} added — rename it to whatever you call it.`);
 }
@@ -2871,7 +2860,7 @@ async function openSampler(source, onPick) {
   requestAnimationFrame(measure);
 }
 
-function swatchForm(existing, onCreate) {
+function swatchForm(existing) {
   const sw = existing || { brand: "", material: "PLA", colorName: "", hex: "#3E7BD1" };
   const n = existing ? swatchStock(existing) : 0;
   modal(`<h2>${existing ? "Swatch" : "Add a swatch"}</h2>
@@ -3012,7 +3001,6 @@ function swatchForm(existing, onCreate) {
       const w = Object.assign({ id: uid("sw-") }, data);
       state.swatches.push(w);
       close(); save(); render();
-      if (onCreate) onCreate(w.id);
     };
     const del = scrim.querySelector("#w-del");
     if (del) del.onclick = () => {
@@ -3039,7 +3027,7 @@ function moveBatch(ids, target, source) {
   let stuck = 0;
   ids.forEach(id => {
     if (into) {
-      const slot = into.slots.indexOf(null);
+      const slot = freeSlot(into);
       if (slot < 0) { stuck++; return; }
       detach(id);
       into.slots[slot] = id;
@@ -3232,7 +3220,7 @@ function setTab(t) {
 document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => setTab(b.dataset.tab));
 
 document.getElementById("fab").onclick = () =>
-  tab === "bench" ? swatchPicker(addSealedRoll)
+  tab === "bench" ? swatchPicker(pick => spoolForm(null, pick))
   : tab === "swatches" ? swatchForm(null)
   : newFolder(null);
 setTab("bench");
