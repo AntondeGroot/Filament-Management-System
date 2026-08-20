@@ -13,7 +13,7 @@ const BENCH = {
   swatches: [{ id: "sw", brand: "Bambu", material: "PLA", colorName: "Red", hex: "#C2231C" }],
   spools: [{ id: "sp-1", swatchId: "sw", low: false, sealed: false, ordered: false,
              driedAt: "2026-08-01", since: "2026-08-01", used: 0 }],
-  units: [{ id: "sh", kind: "shelf", name: "Shelf", slots: ["sp-1", null], open: true }],
+  units: [{ id: "sh", kind: "shelf", name: "Shelf", slots: ["sp-1"], open: true }],
   projects: [{ id: "pj-1", kind: "3mf", name: "keychain.3mf", title: "keychain", note: "",
                folder: null, added: "2026-08-01", thumb: null, seconds: 0, uses: [] }],
 };
@@ -36,7 +36,7 @@ describe("deleting a roll", () => {
       };
     })()`);
 
-    expect(after).toEqual({ onShelf: 0, sheetOpen: false, slots: [null, null], spools: 0 });
+    expect(after).toEqual({ onShelf: 0, sheetOpen: false, slots: [], spools: 0 });
 
     close();
   });
