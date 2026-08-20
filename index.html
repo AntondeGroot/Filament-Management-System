@@ -382,6 +382,9 @@ body.dragging{cursor:grabbing;user-select:none}
 .sw-hex{font-family:var(--mono);font-size:11px;opacity:.72}
 .sw-own{font-family:var(--mono);font-size:11px;min-width:74px;text-align:right}
 .sw-own.none{opacity:.55}
+/* Keeps its room whether or not there is a mark in it, so the counts above and
+   below it stay on one edge. */
+.sw-print{display:flex;align-items:center;justify-content:center;width:28px;height:28px;margin:-4px -2px -4px 0}
 @media (max-width:700px){
   .swatch{flex-wrap:wrap;gap:4px 10px;padding:13px 12px}
   .sw-name{flex:1 1 100%}
@@ -582,7 +585,8 @@ body.dragging{cursor:grabbing;user-select:none}
   import * as Reminders from "./src/reminders.js";
   import * as Setup from "./src/setup.js";
   import * as Wheel from "./src/wheel.js";
-  Object.assign(window, { Mesh, Drying, Polymaker, Batch, Color, Alarms, Intake, Desiccant, Reminders, Setup, Wheel });
+  import * as Swatches from "./src/swatches.js";
+  Object.assign(window, { Mesh, Drying, Polymaker, Batch, Color, Alarms, Intake, Desiccant, Reminders, Setup, Wheel, Swatches });
   window.bridged();
 </script>
 
@@ -2306,16 +2310,7 @@ document.addEventListener("click", e => {
 /* A record of colors, not of plastic. Spools feed it automatically and it
    keeps the entry after the last roll is gone — that's the whole point. */
 
-/* The inline half of a swatch's paint job. Opaque ones set a flat background;
-   translucent ones hand the stylesheet the true color and a thinned copy, and
-   let it do the layering.
-
-   Both take their label color from the raw hex, because both ends of a
-   translucent row are the raw hex — the name sits on one, the stock count on
-   the other. */
-const swatchPaint = sw => (sw.transparent
-  ? `--solid:${esc(sw.hex)};--tint:${esc(sw.hex)}${Color.CLEAR_HEX};color:${Color.readable(sw.hex)}`
-  : `background:${esc(sw.hex)};color:${Color.readable(sw.hex)}`);
+const swatchPaint = sw => Swatches.paint(sw, esc);
 const sortedSwatches = () => Color.sortSwatches(state.swatches);
 const swatchStock = sw => state.spools.filter(s => s.swatchId === sw.id && !inReorder(s.id)).length;
 
@@ -2350,15 +2345,9 @@ function renderSwatches() {
     : "";
   document.getElementById("swatch-filter").innerHTML = famChips + fillChips;
   const list = all.filter(w => swMatch(w, swFilter, swFill));
-  document.getElementById("swatch-list").innerHTML = list.length ? list.map(sw => {
-    const n = swatchStock(sw);
-    return `<button class="swatch${sw.transparent ? " clear" : ""}" data-swatch="${sw.id}" style="${swatchPaint(sw)}">
-      <span class="sw-name">${esc(sw.colorName)}</span>
-      <span class="sw-meta">${esc(sw.brand)} · ${esc(sw.material)}</span>
-      <span class="sw-hex">${esc(sw.hex.toUpperCase())}</span>
-      <span class="sw-own${n ? "" : " none"}">${n ? n + (n === 1 ? " roll" : " rolls") : "none left"}</span>
-    </button>`;
-  }).join("") : `<p class="empty-note" style="padding:14px">${swFilter === "all"
+  document.getElementById("swatch-list").innerHTML = list.length
+    ? list.map(sw => Swatches.rowHTML(sw, swatchStock(sw), esc)).join("")
+    : `<p class="empty-note" style="padding:14px">${swFilter === "all"
       ? "No colors yet. They appear as you add spools, or add one by hand."
       : "Nothing here in " + esc([swFilter, swFill].filter(x => x !== "all").join(" ")) + " yet."}</p>`;
   const owned = list.filter(sw => swatchStock(sw)).length;
@@ -2789,6 +2778,7 @@ function swatchForm(existing) {
       <label class="never" style="display:inline-flex;margin-top:9px">
         <input type="checkbox" id="w-clear"${sw.transparent ? " checked" : ""}> transparent
       </label>
+      <label class="never" style="display:inline-flex;margin:9px 0 0 16px" title="You have printed a chip in this color"><input type="checkbox" id="w-print"${sw.printed ? " checked" : ""}> printed swatch</label>
       <div class="linkrow">
         <a class="btn ghost tiny linkbtn" id="w-lib" href="#" target="_blank" rel="noopener noreferrer">Find it in the library ↗</a>
         <a class="btn ghost tiny linkbtn" id="w-find" href="https://filamentcolors.xyz/colormatch/" target="_blank" rel="noopener noreferrer">Match by hex ↗</a>
@@ -2894,6 +2884,7 @@ function swatchForm(existing) {
       colorName: scrim.querySelector("#w-name").value.trim() || "Unnamed",
       hex: clean(code.value) || current,
       transparent: scrim.querySelector("#w-clear").checked,
+      printed: scrim.querySelector("#w-print").checked,
     });
     scrim.querySelector("#w-save").onclick = () => {
       const data = read();
