@@ -15,17 +15,15 @@ describe("press and hold to drag", () => {
 
     const result = run(`(() => {
       render();
-      swipeStart(document.querySelector(".spool"), { clientX: 100, clientY: 200, pointerId: 1 });
-      const armed = !!(swipe && swipe.hold);
+      pressStart(document.querySelector(".spool"), { clientX: 100, clientY: 200, pointerId: 1 });
+      const armed = !!(press && press.hold);
 
       /* Three pixels across, eight down: the shape of a finger resting on a
-         card, not of anyone asking for anything. Vertical beats horizontal,
-         which is precisely what used to cancel the whole gesture and leave a
-         press-and-hold impossible to perform on a phone. */
-      swipeMove({ clientX: 103, clientY: 208 });
+         card, not of anyone asking for anything. */
+      pressMove({ clientX: 103, clientY: 208 });
 
-      const held = { armed, survived: swipe !== null, stillCounting: !!(swipe && swipe.hold) };
-      if (swipe) { clearTimeout(swipe.hold); swipe = null; }
+      const held = { armed, survived: press !== null, stillCounting: !!(press && press.hold) };
+      pressCancel();
       return held;
     })()`);
 
@@ -36,7 +34,7 @@ describe("press and hold to drag", () => {
     close();
   });
 
-  it("abandons the hold once the finger really moves", async () => {
+  it("lets go of the card the moment the finger really moves, in any direction", async () => {
     const { run, close } = await openApp();
     stubDragEnvironment(run);
     setBench(run, ONE_SPOOL);
@@ -44,28 +42,28 @@ describe("press and hold to drag", () => {
     const result = run(`(() => {
       render();
       const card = document.querySelector(".spool");
-      const press = () => swipeStart(card, { clientX: 100, clientY: 200, pointerId: 1 });
+      const start = () => pressStart(card, { clientX: 100, clientY: 200, pointerId: 1 });
 
-      /* Straight down, well past the slop. That is someone scrolling the page,
-         so the gesture is let go of entirely. */
-      press();
-      swipeMove({ clientX: 100, clientY: 240 });
-      const scrolling = { released: swipe === null };
+      /* Straight down, well past the slop: someone scrolling the page. */
+      start();
+      pressMove({ clientX: 100, clientY: 240 });
+      const down = press === null;
 
-      /* Straight across is a swipe. The hold must not still be armed
-         underneath it, or it fires mid-swipe and lifts the card out from
-         under the gesture already in progress. */
-      press();
-      swipeMove({ clientX: 140, clientY: 200 });
-      const swiping = { active: !!(swipe && swipe.active), stillCounting: !!(swipe && swipe.hold) };
+      /* Straight across, and the answer is the same. It used to be a swipe —
+         left to send the roll to the reorder queue, right to flag it low —
+         and that is exactly the gesture you make scrolling a row of spools
+         sideways, so rolls were being retired by accident. A horizontal
+         movement now means nothing at all to the card underneath it. */
+      start();
+      pressMove({ clientX: 140, clientY: 200 });
+      const across = press === null;
 
-      if (swipe) swipeCancel();
-      return { scrolling, swiping };
+      pressCancel();
+      return { down, across };
     })()`);
 
-    expect(result.scrolling.released).toBe(true);
-    expect(result.swiping.active).toBe(true);
-    expect(result.swiping.stillCounting).toBe(false);
+    expect(result.down).toBe(true);
+    expect(result.across).toBe(true);
 
     close();
   });
