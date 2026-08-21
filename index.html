@@ -288,10 +288,6 @@ body.dragging{cursor:grabbing;user-select:none}
 .dropzone{border:2px dashed var(--rule);border-radius:4px;padding:16px;text-align:justify;font-size:13px;color:var(--ink-soft);cursor:pointer}
 .dropzone:hover{border-color:var(--ink);color:var(--ink)}
 
-/* ---------- swipe (touch only) ---------- */
-.swipe-hint{position:absolute;z-index:1;display:flex;align-items:center;padding:0 12px;border-radius:3px;background:var(--ink);color:var(--panel);font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;font-size:12px}
-.swipe-hint.danger{background:var(--alert)}
-.spool.swiping{z-index:2;transition:none}
 
 /* ---------- modal ---------- */
 .scrim{position:fixed;inset:0;background:rgba(20,22,26,.55);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:5vh 16px;overflow:auto}
@@ -507,8 +503,8 @@ body.dragging{cursor:grabbing;user-select:none}
 </div>
 
 <div class="wrap" id="tab-bench">
-  <p class="touch-hint"><b>Press and hold</b> a spool to drag it somewhere else. Swipe it <b>left</b> to retire,
-    <b>right</b> to flag it low, or tap it for everything else.</p>
+  <p class="touch-hint"><b>Press and hold</b> a spool to drag it somewhere else, or <b>tap</b> it for
+    everything else — where it lives, running low, opened, dried, reorder.</p>
   <div>
     <div id="bench-sections"></div>
 
@@ -1348,8 +1344,8 @@ function aimDrag(x, y) {
   drag.drop = hit ? hit.target : null;
 }
 
-/* Touch swipes, mouse drags. Trying to do both on one pointer fights itself:
-   a horizontal drag and a horizontal swipe are the same gesture. */
+/* Press-and-hold on touch, straight drag with a mouse: a mouse has a button to
+   hold down and a phone has nothing to distinguish a drag from a scroll. */
 let udrag = null, lastUnitDrag = 0;
 document.addEventListener("pointerdown", e => {
   const zoneBtn = e.target.closest("[data-zonemove]");
@@ -1375,13 +1371,13 @@ document.addEventListener("pointerdown", e => {
   }
   const card = e.target.closest(".spool");
   if (!card || e.button > 0) return;
-  if (e.pointerType === "touch") { swipeStart(card, e); return; }
+  if (e.pointerType === "touch") { pressStart(card, e); return; }
   drag = { id: card.dataset.id, x: e.clientX, y: e.clientY, card, active: false };
   card.setPointerCapture(e.pointerId);
 });
 document.addEventListener("pointermove", e => {
   if (udrag) { unitDragMove(e); return; }
-  if (swipe) { swipeMove(e); return; }
+  if (press) { pressMove(e); return; }
   if (!drag) return;
   if (!drag.active) {
     if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 7) return;
@@ -1399,7 +1395,7 @@ document.addEventListener("pointermove", e => {
 document.addEventListener("pointerup", () => {
   edgeStop();
   if (udrag) { unitDragEnd(); return; }
-  if (swipe) { swipeEnd(); return; }
+  if (press) { pressEnd(); return; }
   if (!drag) return;
   const d = drag; drag = null;
   document.body.classList.remove("dragging");
@@ -1415,7 +1411,7 @@ document.addEventListener("pointerup", () => {
 document.addEventListener("pointercancel", () => {
   edgeStop();
   if (udrag) { unitDragEnd(true); return; }
-  if (swipe) { swipeCancel(); return; }
+  if (press) { pressCancel(); return; }
   if (!drag) return;
   if (drag.ghost) drag.ghost.remove();
   if (drag.card) drag.card.classList.remove("lifted");
@@ -1494,40 +1490,32 @@ function unitDragEnd(cancelled) {
   else toast("Drop them on a unit, or on Unassigned.");
 }
 
-/* ============================ swipe (touch) ============================ */
-let swipe = null;
+/* ======================= press and hold (touch) =======================
+ * A card answers to two gestures on a phone and no more: a tap opens it, a
+ * press-and-hold picks it up.
+ *
+ * There was a third — swipe left to send a roll to the reorder queue, right to
+ * flag it low — and it is gone on purpose. A horizontal flick across a card is
+ * also how you scroll a row of spools sideways, so the two gestures were the
+ * same movement and the app had to guess which you meant; it guessed wrong
+ * often enough to retire rolls nobody had finished with. Nothing was lost with
+ * it either: every one of those actions is a button in the sheet that a tap
+ * already opens, where it is labelled and undoable. */
+let press = null;
 
-/* What each direction does depends on the roll — the label says so before you let go. */
-function swipeActions(s) {
-  const empty = inReorder(s.id);
-  return {
-    left: empty ? { label: "Delete", danger: true, run: () => {
-            detach(s.id);
-            state.spools = state.spools.filter(x => x.id !== s.id);
-            toast(`${info(s).colorName} deleted.`);
-          } }
-        : { label: "Reorder", run: () => place(s.id, { zone: "reorder" }) },
-    right: s.sealed ? { label: "Open it", run: () => {
-             s.sealed = false; s.driedAt = today(); toast(`${info(s).colorName} opened.`);
-           } }
-         : empty ? { label: s.ordered ? "Not ordered" : "Ordered", run: () => { s.ordered = !s.ordered; } }
-         : { label: s.low ? "Not low" : "Low", run: () => { s.low = !s.low; } },
-  };
-}
 const blockScroll = e => e.preventDefault();
-function swipeStart(card, e) {
+
+function pressStart(card, e) {
   const s = spool(card.dataset.id); if (!s) return;
-  swipe = { card, s, x: e.clientX, y: e.clientY, dx: 0, active: false, acts: swipeActions(s) };
+  press = { card, id: s.id, x: e.clientX, y: e.clientY };
   card.setPointerCapture(e.pointerId);
-  /* Hold still for a moment and it becomes a drag instead of a swipe. */
-  swipe.hold = setTimeout(startTouchDrag, 320);
+  press.hold = setTimeout(startTouchDrag, 320);
 }
+
 function startTouchDrag() {
-  const w = swipe;
-  if (!w || w.active) return;
-  swipe = null;
-  w.card.classList.remove("swiping");
-  w.card.style.transform = "";
+  const w = press;
+  if (!w) return;
+  press = null;
   w.card.style.touchAction = "none";
   document.addEventListener("touchmove", blockScroll, { passive: false });
   if (navigator.vibrate) navigator.vibrate(12);
@@ -1537,59 +1525,32 @@ function startTouchDrag() {
   g.classList.add("holding");
   document.body.appendChild(g);
   w.card.classList.add("lifted");
-  drag = { id: w.s.id, card: w.card, ghost: g, active: true, touch: true, x: w.x, y: w.y };
+  drag = { id: w.id, card: w.card, ghost: g, active: true, touch: true, x: w.x, y: w.y };
 }
+
 function endTouchDrag(d) {
   if (!d || !d.touch) return;
   document.removeEventListener("touchmove", blockScroll, { passive: false });
   if (d.card) d.card.style.touchAction = "";
 }
+
 /* A finger resting on a card drifts a few pixels without being asked to. Below
-   this, nothing has been decided yet and the press-and-hold keeps counting. */
+   this nothing has been decided and the hold keeps counting; past it the page
+   is being scrolled, and the card is not what the gesture is about. */
 const HOLD_SLOP = 12;
 
-function swipeMove(e) {
-  const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
-  if (!swipe.active) {
-    /* Drift is not an intention. This used to cancel the whole gesture as soon
-       as vertical movement beat horizontal by a single pixel — which a resting
-       finger manages about half the time, killing the hold before it could
-       fire. That is why dragging on a phone almost always ended as a tap. */
-    if (Math.hypot(dx, dy) <= HOLD_SLOP) return;
-    clearTimeout(swipe.hold); swipe.hold = null;
-    if (Math.abs(dy) > Math.abs(dx)) { swipeCancel(); return; }   /* let the page scroll */
-    swipe.active = true;
-    swipe.card.classList.add("swiping");
-    const r = swipe.card.getBoundingClientRect();
-    const hint = document.createElement("div");
-    hint.className = "swipe-hint";
-    hint.style.cssText = `left:${r.left + scrollX}px;top:${r.top + scrollY}px;width:${r.width}px;height:${r.height}px`;
-    document.body.appendChild(hint);
-    swipe.hint = hint;
-  }
-  swipe.dx = dx;
-  const a = dx < 0 ? swipe.acts.left : swipe.acts.right;
-  swipe.hint.textContent = a.label;
-  swipe.hint.classList.toggle("danger", !!a.danger);
-  swipe.hint.style.justifyContent = dx < 0 ? "flex-end" : "flex-start";
-  swipe.card.style.transform = `translateX(${dx}px)`;
+function pressMove(e) {
+  if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > HOLD_SLOP) pressCancel();
 }
-function swipeEnd() {
-  const w = swipe;
-  const go = w.active && Math.abs(w.dx) > Math.max(56, w.card.offsetWidth * 0.4);
-  swipeCancel();
-  if (!w.active) { openSpool(w.s.id); return; }
-  if (!go) return;
-  (w.dx < 0 ? w.acts.left : w.acts.right).run();
-  mark(w.s.id); save(); render();
+function pressEnd() {
+  const w = press;
+  pressCancel();
+  if (w) openSpool(w.id);
 }
-function swipeCancel() {
-  if (!swipe) return;
-  clearTimeout(swipe.hold);
-  if (swipe.hint) swipe.hint.remove();
-  swipe.card.classList.remove("swiping");
-  swipe.card.style.transform = "";
-  swipe = null;
+function pressCancel() {
+  if (!press) return;
+  clearTimeout(press.hold);
+  press = null;
 }
 
 document.addEventListener("keydown", e => {
