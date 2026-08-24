@@ -63,7 +63,7 @@ export async function openApp({ now, modules = true } = {}) {
      middle of a test. */
   await new Promise(resolve => setTimeout(resolve, 50));
 
-  if (now) freezeClock(run, now);
+  if (now) setClock(run, now);
 
   return { run, window: dom.window, close: () => dom.window.close() };
 }
@@ -78,8 +78,11 @@ export function bridgeModules({ window, run }) {
 
 /* Replaces Date inside the realm, not in the test's own. The app builds its
    dates with `new Date()` and `Date.now()` there, and the two realms have
-   separate globals, so vi.setSystemTime() would not reach it. */
-function freezeClock(run, when) {
+   separate globals, so vi.setSystemTime() would not reach it.
+
+   Letting time pass is the same operation done again, so a test that needs a
+   month to go by calls this a second time. */
+export function setClock(run, when) {
   run(`(() => {
     const Real = Date;
     const fixed = new Real(${JSON.stringify(when)}).getTime();
