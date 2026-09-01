@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- The page's machine colour: the header bar and the phone tab bar are
+         both painted with it, so the window background behind the system bars
+         has to match or the app ends up framed in a stripe of another colour. -->
+    <color name="machine">#1B1F26</color>
+</resources>

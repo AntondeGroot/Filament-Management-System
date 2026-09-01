@@ -13,6 +13,13 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Capacitor's SystemBars plugin paints the decor view with this
+             attribute, and on the phones whose WebView is too old to take the
+             insets itself it also insets the WebView by the status and gesture
+             bars. What shows in those two strips is therefore this colour, not
+             anything the page draws — and DayNight's default is near white, so
+             the dark tab bar sat on a white band along the bottom edge. -->
+        <item name="android:windowBackground">@color/machine</item>
     </style>
 
 

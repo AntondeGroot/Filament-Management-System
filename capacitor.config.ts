@@ -17,6 +17,16 @@ const config: CapacitorConfig = {
     // the moment before the first frame, which reads as a flash on launch.
     backgroundColor: "#DEDCD6",
   },
+
+  plugins: {
+    // Both system bars sit against the app's dark --machine chrome, so their
+    // icons have to be the light set. Left on DEFAULT the plugin picks from the
+    // phone's day/night setting, which on a phone in light mode draws a dark
+    // gesture pill on a dark bar.
+    SystemBars: {
+      style: "DARK",
+    },
+  },
 };
 
 export default config;
