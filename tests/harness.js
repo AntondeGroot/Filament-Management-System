@@ -30,6 +30,7 @@ import * as reminders from "../src/reminders.js";
 import * as setup from "../src/setup.js";
 import * as spools from "../src/spools.js";
 import * as swatches from "../src/swatches.js";
+import * as uses from "../src/uses.js";
 import * as wheel from "../src/wheel.js";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
@@ -42,7 +43,7 @@ const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
  * to happen in beforeParse: the inline script runs during construction and
  * reaches for these while rendering the first frame. */
 const MODULES = { Alarms: alarms, Batch: batch, Color: color, Desiccant: desiccant, Drying: drying,
-                  Intake: intake, Mesh: mesh, Polymaker: polymaker, Reminders: reminders, Setup: setup, Spools: spools, Swatches: swatches, Wheel: wheel };
+                  Intake: intake, Mesh: mesh, Polymaker: polymaker, Reminders: reminders, Setup: setup, Spools: spools, Swatches: swatches, Uses: uses, Wheel: wheel };
 
 /* Boots a fresh copy of the app.
  *
