@@ -30,13 +30,16 @@ export const alreadyLogged = (rec, projects) => projects.find(p => p.name === re
  * written over. A slot the new file brings that you never had takes the swatch
  * the slicer matched; a slot you have that the new file no longer lists is left
  * alone rather than dropped. Losing a color you assigned by hand because a
- * re-slice renumbered its filaments is exactly the surprise this avoids.
+ * re-slice renumbered its filaments is exactly the surprise this avoids. The
+ * note on a color — what it prints, "pawns and field" — is yours too, and
+ * stays with its slot the same way.
  * Slot for slot, in the order the slicer lists them. */
 function replaceWith(old, rec) {
   const uses = Array.from({ length: Math.max(old.uses.length, rec.uses.length) }, (_, i) => {
     const was = old.uses[i], now = rec.uses[i];
     if (!now) return was;
-    return { ...now, swatchId: (was && was.swatchId) || now.swatchId };
+    if (!was) return now;
+    return { ...now, swatchId: was.swatchId || now.swatchId, ...(was.note && { note: was.note }) };
   });
   return { ...old, kind: rec.kind, thumb: rec.thumb, seconds: rec.seconds, added: rec.added, uses };
 }

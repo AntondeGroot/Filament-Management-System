@@ -91,3 +91,58 @@ describe("a file's colors", () => {
     close();
   });
 });
+
+describe("a note on a file's color", () => {
+  it("is typed while editing, reads under the color after, and leaves nothing behind when cleared", async () => {
+    const { run, close } = await openApp();
+    stubMedia(run);
+    setBench(run, ONE_FILE);
+    run("render()");
+
+    const note = () => run(`document.querySelector(".proj .fil .un")?.textContent ?? null`);
+    const type = text => run(`(() => {
+      const el = document.querySelector("[data-usenote]");
+      el.value = ${JSON.stringify(text)};
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    })()`);
+
+    run(`document.querySelector("[data-projedit]").click()`);
+    type("  pawns and field ");
+    run(`document.querySelector("[data-projedit]").click()`);
+
+    /* Trimmed on the record, and on the card once editing is done. */
+    expect(run("state.projects[0].uses[0].note")).toBe("pawns and field");
+    expect(note()).toBe("pawns and field");
+
+    /* Blanked out is gone, not an empty string left on the color. */
+    run(`document.querySelector("[data-projedit]").click()`);
+    type("   ");
+    run(`document.querySelector("[data-projedit]").click()`);
+
+    expect(run(`"note" in state.projects[0].uses[0]`)).toBe(false);
+    expect(note()).toBe(null);
+
+    close();
+  });
+
+  it("is shown as the text you typed, quotes and angle brackets included", async () => {
+    const { run, close } = await openApp();
+    stubMedia(run);
+    const typed = `<b>lid</b> & "hinge"`;
+    const file = structuredClone(ONE_FILE);
+    file.projects[0].uses[0].note = typed;
+    setBench(run, file);
+    run("render()");
+
+    /* Read: as text on the card, not markup — no <b> element sneaks in. */
+    expect(run(`document.querySelector(".proj .fil .un").textContent`)).toBe(typed);
+    expect(run(`document.querySelector(".proj .fil .un b")`)).toBe(null);
+
+    /* Edit: the quote does not end the value attribute early, so the field
+       hands back exactly what was saved. */
+    run(`document.querySelector("[data-projedit]").click()`);
+    expect(run(`document.querySelector("[data-usenote]").value`)).toBe(typed);
+
+    close();
+  });
+});

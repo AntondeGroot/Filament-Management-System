@@ -41,4 +41,20 @@ describe("replacing a file that is already logged", () => {
       ],
     });
   });
+
+  it("keeps the note on each color with the slot it was written on", () => {
+    const projects = [structuredClone(LOGGED)];
+    projects[0].uses[0].note = "pawns and field";
+    projects[0].uses[1].note = "box";
+
+    replaceAll(projects, [REPICKED]);
+
+    /* Slot 0 is rebuilt from the new file — new weight — and that rebuild is
+       exactly where a note would be dropped. Slot 1 is no longer in the file
+       and is carried over whole. */
+    expect(projects[0].uses).toEqual([
+      { swatchId: "sw-red", grams: 31, note: "pawns and field" },
+      { swatchId: "sw-by-hand", grams: 2, type: "PLA", color: "#123456", note: "box" },
+    ]);
+  });
 });

@@ -243,11 +243,22 @@ body.dragging{cursor:grabbing;user-select:none}
 .proj .t{font-weight:600;font-size:13px;overflow-wrap:anywhere}
 .proj .d{font-family:var(--mono);font-size:11px;color:var(--ink-soft);margin-top:2px}
 .fil{display:flex;align-items:center;gap:6px;margin-top:5px}
-.fil.read{margin-top:2px}
+.fil.read{margin-top:2px;align-items:flex-start}
+/* Pinned to the color's name, not centred on name and note together. The
+   nudges centre each on that first 12px line. */
+.fil.read .dot{margin-top:2px}
+.fil.read .g{margin-top:2px}
 .fil .nm{flex:1;min-width:0;font-size:12px;overflow-wrap:anywhere}
-.fil select,.fil .pick{flex:1;min-width:0;padding:4px 6px;border:1px solid var(--rule);border-radius:2px;background:#fff;font-family:var(--body);font-size:12px;color:var(--ink)}
+.fil select,.fil .pick,.fil-note{flex:1;min-width:0;padding:4px 6px;border:1px solid var(--rule);border-radius:2px;background:#fff;font-family:var(--body);font-size:12px;color:var(--ink)}
 .fil .pick{text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fil .g{font-family:var(--mono);font-size:10px;color:var(--ink-soft)}
+/* What a color is for in this file — "pawns and field". A line under the name
+   when reading, a field under the picker when editing. */
+.fil .un{display:block;font-size:11px;color:var(--ink-soft)}
+.fil-note{display:block;width:calc(100% - 19px);margin:3px 0 0 19px}
+/* Same type as the color it sits under, but grey, so an empty field never
+   reads as a note you wrote. */
+.fil-note::placeholder{color:var(--ink-soft);opacity:1}
 .proj .acts{display:flex;gap:6px;margin-top:7px}
 /* Floated, not a column of its own: the name wraps beside it and the color
    list underneath still gets the full width of the card. */
@@ -611,7 +622,8 @@ body.dragging{cursor:grabbing;user-select:none}
   import * as Wheel from "./src/wheel.js";
   import * as Swatches from "./src/swatches.js";
   import * as Spools from "./src/spools.js";
-  Object.assign(window, { Mesh, Drying, Polymaker, Batch, Color, Alarms, Intake, Desiccant, Reminders, Setup, Wheel, Swatches, Spools });
+  import * as Uses from "./src/uses.js";
+  Object.assign(window, { Mesh, Drying, Polymaker, Batch, Color, Alarms, Intake, Desiccant, Reminders, Setup, Wheel, Swatches, Spools, Uses });
   window.bridged();
 </script>
 
@@ -1810,15 +1822,6 @@ function folderOptions(skipId, sel) {
  * surprise rather than a convenience. */
 let editing = null;
 
-/* What a color row says: the swatch it landed on, or what the slicer called a
-   filament nothing matched. `none` is for the row that has neither yet — a
-   statement while you read the list, an invitation while you edit it. */
-const useLabel = (u, none = "No color picked") => {
-  const w = swatch(u.swatchId);
-  if (w) return `${w.brand} ${w.colorName} · ${w.material}`;
-  return u.type ? `Unmatched — ${u.type} ${u.color}` : none;
-};
-
 /* Geometry has no color of its own, so it wears the first one you assigned. */
 function projectTint(p) {
   const u = (p.uses || []).find(x => x.swatchId && swatch(x.swatchId));
@@ -1852,16 +1855,8 @@ function renderProjects() {
         <div class="t">${esc(p.title)}</div>
         <div class="fn">${esc(p.name)}${p.note ? " · " + esc(p.note) : ""}</div>
         <div class="d">${hrs}${g ? g.toFixed(0) + " g · " : ""}added ${esc(fmtDate(p.added))}</div>
-        ${inOrder(p.uses).map(([u, i]) => {
-          const w = swatch(u.swatchId);
-          const dot = `<span class="dot" style="background:${esc(w ? w.hex : u.color || "#B9B7B0")}"></span>`;
-          const grams = `<span class="g">${u.grams ? u.grams + " g" : ""}</span>`;
-          return editable ? `<div class="fil">${dot}
-            <button class="pick" data-pickuse="${p.id}|${i}">${esc(useLabel(u, "Pick a color"))}</button>
-            ${grams}
-            <button class="btn ghost tiny" data-usedel="${p.id}|${i}" aria-label="Remove color">×</button>
-          </div>` : `<div class="fil read">${dot}<span class="nm">${esc(useLabel(u))}</span>${grams}</div>`;
-        }).join("")}
+        ${inOrder(p.uses).map(([use, slot]) =>
+          Uses.rowHTML({ projectId: p.id, use, slot, sw: swatch(use.swatchId), editable }, esc)).join("")}
         ${editable ? `<div class="acts">
           <button class="btn ghost tiny" data-useadd="${p.id}">+ Color</button>
           <button class="btn ghost tiny" data-projmenu="${p.id}">Rename / move</button>
@@ -2212,6 +2207,14 @@ function addUnit(kind) {
 }
 
 document.addEventListener("input", e => {
+  /* Saved as you type and never re-rendered, so the field keeps its focus. */
+  const un = e.target.closest("[data-usenote]");
+  if (un) {
+    const [pid, i] = un.dataset.usenote.split("|");
+    const use = state.projects.find(x => x.id === pid)?.uses[+i];
+    if (use) { Uses.writeNote(use, un.value); save(); }
+    return;
+  }
   const nm = e.target.closest("[data-uname]");
   if (!nm) return;
   const u = unit(nm.dataset.uname);
