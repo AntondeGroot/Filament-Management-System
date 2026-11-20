@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+  # Branches are not required to be up to date before merging, so two PRs that
+  # are each green can still break main together. This run catches that.
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  # Renovate bumps Gradle and the Android Gradle plugin; this is what proves
+  # such a bump still builds an APK.
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v5
+      - run: npm ci
+      - run: npm run cap:sync
+      - run: ./gradlew assembleDebug
+        working-directory: android
+
+  # The only check the ruleset requires, so jobs can be added or renamed
+  # without editing the ruleset. `if: always()` matters: without it a failed
+  # dependency skips this job, and a skipped required check counts as passing.
+  ci:
+    if: always()
+    needs: [test, android]
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
