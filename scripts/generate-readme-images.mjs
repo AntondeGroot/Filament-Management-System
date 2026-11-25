@@ -23,6 +23,7 @@ import { createServer } from "node:http";
 import { dirname, extname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { renderSocialPreview } from "./social-preview.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DIST = join(ROOT, "dist");
@@ -56,9 +57,13 @@ function serve(port) {
 const wait = ms => new Promise(done => setTimeout(done, ms));
 
 async function openChrome(port, profile) {
+  /* --disable-gpu: the GPU picks a different filter for scaled-down images
+     from one launch to the next, so the social preview's phones came out
+     subtly different every run. Software rendering keeps the screenshots
+     byte-identical, and the preview to within a shade on a few pixels. */
   const chrome = spawn(CHROME, [
     "--headless=new", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`,
-    "--no-first-run", "--no-default-browser-check", "--hide-scrollbars", "about:blank",
+    "--no-first-run", "--no-default-browser-check", "--hide-scrollbars", "--disable-gpu", "about:blank",
   ], { stdio: "ignore" });
 
   for (let tries = 0; tries < 50; tries++) {
@@ -165,10 +170,11 @@ const SHOTS = [
                crop has to lie inside the phone-sized viewport. */
             document.querySelector('[data-unit="sh"]').scrollIntoView({ block: "start" });`,
     clip: `(() => {
-      /* The filled slots and nothing else: no header, and none of the four
-         empty ones, which say nothing a caption cannot. Viewport-relative, so
-         it lines up with a screenshot of the viewport. */
-      const filled = [...document.querySelectorAll('[data-unit="sh"] .slot.taken')]
+      /* The rolls on the shelf and nothing else: no header. A shelf is drawn
+         as a heap of what is on it, with no empty slots, so its .slots box is
+         exactly the rolls. Viewport-relative, so it lines up with a screenshot
+         of the viewport. */
+      const filled = [...document.querySelectorAll('[data-unit="sh"] .slots')]
         .map(el => el.getBoundingClientRect());
       const pad = 12;
       const left = Math.min(...filled.map(r => r.left)), right = Math.max(...filled.map(r => r.right));
@@ -258,6 +264,7 @@ try {
     console.log(`  ${shot.file.padEnd(18)} ${shot.note}`);
   }
 
+  await renderSocialPreview(cdp, ROOT);
   cdp.close();
 } finally {
   chrome.kill();
