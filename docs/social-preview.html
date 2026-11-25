@@ -1,0 +1,189 @@
+<!doctype html>
+<!--
+  The repo's social preview (GitHub: Settings → General → Social preview), 1280×640.
+  Rendered to docs/social-preview.png by scripts/generate-readme-images.mjs, right after the
+  screenshots it shows — so run `npm run screenshots` rather than editing the PNG.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;600&display=block"
+      rel="stylesheet"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+      }
+      .preview {
+        width: 1280px;
+        height: 640px;
+        overflow: hidden;
+        position: relative;
+        /* The app's header colour, --machine. */
+        background: radial-gradient(ellipse at 75% 45%, #2b313b 0%, #1b1f26 60%, #121519 100%);
+        font-family: 'IBM Plex Sans', sans-serif;
+        color: #edece8;
+      }
+      /* A strand of filament through a few of the swatch colours from the
+         screenshots, curling along the bottom and behind the phones. */
+      .strand {
+        position: absolute;
+        inset: 0;
+      }
+      .text {
+        position: absolute;
+        left: 80px;
+        top: 80px;
+        width: 560px;
+      }
+      /* The app's wordmark, bigger. */
+      h1 {
+        margin: 0;
+        font:
+          700 118px/0.92 'Barlow Condensed',
+          sans-serif;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+      h1 span {
+        color: #8a9099;
+      }
+      .pitch {
+        margin: 36px 0 0;
+        font-size: 29px;
+        line-height: 39px;
+      }
+      .facts {
+        margin: 30px 0 0;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .facts span {
+        padding: 7px 16px 6px;
+        border-radius: 2px;
+        font:
+          600 19px/23px 'Barlow Condensed',
+          sans-serif;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        border: 1px solid #6b7280;
+      }
+      /* A fan of printed sample swatches, the kind kept on a ring, pinned
+         through the hole at their end. The colours are the ones in the
+         swatch screenshot. Drawn as one SVG, which varies least between runs:
+         Chrome still renders a few pixels around it a shade differently now
+         and then, too little to see. */
+      .fan {
+        position: absolute;
+        left: 0;
+        top: 0;
+      }
+      .phones {
+        position: absolute;
+        left: 690px;
+        top: 0;
+        width: 590px;
+        height: 640px;
+      }
+      .phones img {
+        position: absolute;
+        width: 250px;
+        border-radius: 22px;
+        border: 6px solid #0c0e11;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+      }
+      .phones .back {
+        left: 250px;
+        top: 40px;
+        transform: rotate(6deg);
+      }
+      .phones .front {
+        left: 40px;
+        top: 70px;
+        transform: rotate(-5deg);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="preview">
+      <svg class="strand" width="1280" height="640" viewBox="0 0 1280 640">
+        <defs>
+          <linearGradient id="colors" x1="0" x2="1">
+            <stop offset="0" stop-color="#c9293c" />
+            <stop offset="0.16" stop-color="#ff6200" />
+            <stop offset="0.3" stop-color="#ffff62" />
+            <stop offset="0.44" stop-color="#44c27e" />
+            <stop offset="0.6" stop-color="#1f8bb4" />
+            <stop offset="0.76" stop-color="#6600a3" />
+            <stop offset="0.9" stop-color="#d8b5c5" />
+            <stop offset="1" stop-color="#c09f83" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M -20 560 C 160 540, 360 660, 640 622 S 900 470, 1040 520 S 1220 640, 1300 560"
+          fill="none"
+          stroke="url(#colors)"
+          stroke-width="7"
+          stroke-linecap="round"
+        />
+      </svg>
+      <div class="text">
+        <h1>Filament<span>/</span><br />Manager</h1>
+        <p class="pitch">Know where every spool is, which ones need drying, what to buy again and which prints used which filaments.</p>
+        <div class="facts">
+          <span>On your phone</span>
+          <span>Drying reminders</span>
+        </div>
+      </div>
+      <div class="phones">
+        <img class="back" src="screenshots/swatches.png" alt="" />
+        <img class="front" src="screenshots/spools.png" alt="" />
+      </div>
+      <svg class="fan" width="1280" height="640" viewBox="0 0 1280 640">
+        <defs>
+          <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="4" stdDeviation="5" flood-opacity="0.45" />
+          </filter>
+        </defs>
+        <!-- Every swatch turns about its hole, which is the pin at 600,560. -->
+        <g transform="translate(600 560)" filter="url(#shadow)">
+          <g transform="rotate(-106.7)">
+            <rect x="-14" y="-14" width="130" height="40" rx="5" fill="#c9293c" />
+            <circle r="6" fill="#000" />
+          </g>
+          <g transform="rotate(-95)">
+            <rect x="-14" y="-14" width="130" height="40" rx="5" fill="#ff6200" />
+            <circle r="6" fill="#000" />
+          </g>
+          <g transform="rotate(-83.3)">
+            <rect x="-14" y="-14" width="130" height="40" rx="5" fill="#ffff62" />
+            <circle r="6" fill="#000" />
+          </g>
+          <g transform="rotate(-71.7)">
+            <rect x="-14" y="-14" width="130" height="40" rx="5" fill="#44c27e" />
+            <circle r="6" fill="#000" />
+          </g>
+          <g transform="rotate(-60)">
+            <rect x="-14" y="-14" width="130" height="40" rx="5" fill="#1f8bb4" />
+            <circle r="6" fill="#000" />
+          </g>
+          <g transform="rotate(-48.3)">
+            <rect x="-14" y="-14" width="130" height="40" rx="5" fill="#6600a3" />
+            <circle r="6" fill="#000" />
+          </g>
+          <g transform="rotate(-36.7)">
+            <rect x="-14" y="-14" width="130" height="40" rx="5" fill="#d8b5c5" />
+            <circle r="6" fill="#000" />
+          </g>
+          <g transform="rotate(-25)">
+            <rect x="-14" y="-14" width="130" height="40" rx="5" fill="#c09f83" />
+            <circle r="6" fill="#000" />
+          </g>
+        </g>
+      </svg>
+    </div>
+  </body>
+</html>
